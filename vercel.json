@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd apps/unfold && npm run build",
+  "outputDirectory": "apps/unfold/.next",
+  "installCommand": "npm install",
+  "framework": "nextjs"
+}

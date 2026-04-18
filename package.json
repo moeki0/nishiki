@@ -1,0 +1,9 @@
+{
+  "name": "nishiki",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "website"
+  ]
+}

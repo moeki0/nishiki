@@ -1,0 +1,19 @@
+{
+  "name": "gengen-agent-sdk-tui",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.tsx"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "ink": "^5",
+    "ink-text-input": "^6.0.0",
+    "react": "^18"
+  },
+  "devDependencies": {
+    "@types/react": "^18",
+    "tsx": "^4",
+    "typescript": "~6"
+  }
+}
