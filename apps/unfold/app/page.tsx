@@ -594,7 +594,7 @@ export default function Home() {
             border: 1px solid rgba(0,0,0,0.08);
             border-radius: 999px;
             color: #111;
-            font-size: 0.8125rem;
+            font-size: 16px;
             outline: none;
             font-family: inherit;
             transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
