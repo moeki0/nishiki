@@ -129,9 +129,8 @@ export default function Home() {
 
   const active = turns.length > 0 || phase === 'loading' || phase === 'streaming'
   const [hoveredTopic, setHoveredTopic] = useState<number | null>(null)
-  const [isJa] = useState(() =>
-    typeof navigator !== 'undefined' ? navigator.language.startsWith('ja') : true
-  )
+  const [isJa, setIsJa] = useState(true)
+  useEffect(() => { setIsJa(navigator.language.startsWith('ja')) }, [])
 
   // Auto-start from URL query
   const startedRef = useRef(false)
