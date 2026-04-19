@@ -25,13 +25,13 @@ function DefaultMarkdown({ markdown, inlines = [] }: { markdown: string; inlines
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        p: ({ children, node }) => {
+        p: ({ children }) => {
           // Avoid invalid <p><figure> nesting when paragraph contains only an image.
-          // Filter out whitespace-only text nodes before checking.
-          type HastChild = { type: string; tagName?: string; value?: string }
-          const significant = (node as { children?: HastChild[] } | undefined)
-            ?.children?.filter(c => !(c.type === 'text' && !c.value?.trim()))
-          const isImageOnly = significant?.length === 1 && significant[0].tagName === 'img'
+          // Check React children directly: our img component returns <figure>.
+          const arr = React.Children.toArray(children)
+          const isImageOnly = arr.length > 0 && arr.every(
+            child => React.isValidElement(child) && (child as React.ReactElement<unknown>).type === 'figure'
+          )
           if (isImageOnly) return <div>{children}</div>
           return <p style={{ color: '#444', lineHeight: 1.8, marginBottom: '1rem', fontSize: '0.9375rem', fontFamily: 'var(--font-sans)' }}>{wrap(children)}</p>
         },
