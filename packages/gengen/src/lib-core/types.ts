@@ -8,6 +8,8 @@ export interface SchemaDefinition<S extends Record<string, SchemaPart> = Record<
   name: string
   schema: S
   description?: string
+  /** Trigger condition shown to the LLM — describe the situation that should prompt using this block. */
+  trigger?: string
 }
 
 // componentあり — クライアント用

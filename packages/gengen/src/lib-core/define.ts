@@ -58,6 +58,7 @@ export function block<S extends Record<string, SchemaPart>>(
     schema: S
     component: ComponentType<InferSchema<S>>
     description?: string
+    trigger?: string
   },
 ): RendererDefinition<S>
 
@@ -67,6 +68,7 @@ export function block<S extends Record<string, SchemaPart>>(
     schema: S
     component?: undefined
     description?: string
+    trigger?: string
   },
 ): SchemaDefinition<S>
 
@@ -76,13 +78,14 @@ export function block<S extends Record<string, SchemaPart>>(
     schema: S
     component?: ComponentType<InferSchema<S>>
     description?: string
+    trigger?: string
   },
 ): DefineBuilderBase | SchemaDefinition<S> | RendererDefinition<S> {
   if (!options) {
     return makeDefineBuilder(name)
   }
   if (options.component) {
-    return { name, schema: options.schema, description: options.description, component: options.component }
+    return { name, schema: options.schema, description: options.description, trigger: options.trigger, component: options.component }
   }
-  return { name, schema: options.schema, description: options.description }
+  return { name, schema: options.schema, description: options.description, trigger: options.trigger }
 }

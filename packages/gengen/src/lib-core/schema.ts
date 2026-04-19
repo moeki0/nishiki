@@ -172,12 +172,12 @@ export interface SeparateField {
 
 // --- Schema part types ---
 
-export type CodeblockPart  = { kind: 'codeblock'; lang?: string; example?: string; hint?: string; isOptional?: true }
+export type CodeblockPart  = { kind: 'codeblock'; lang?: string; exampleCode?: string; contentMatch?: string | RegExp; hint?: string; isOptional?: true }
 export type TextPart       = { kind: 'text'; until?: string; label?: boolean; filter?: (value: string) => boolean; hint?: string; isOptional?: true }
 export type BoolPart       = { kind: 'bool'; hint?: string; isOptional?: true }
-export type HeadingPart    = { kind: 'heading'; level?: number | number[]; separates?: SeparateField[]; hint?: string; contentMatch?: string | RegExp; isOptional?: true }
+export type HeadingPart    = { kind: 'heading'; level?: number | number[]; separates?: SeparateField[]; hint?: string; contentMatch?: string | RegExp; prefixMatch?: string | RegExp; isOptional?: true }
 export type BlockquotePart = { kind: 'blockquote'; hint?: string; isOptional?: true }
-export type TablePart      = { kind: 'table'; hint?: string; isOptional?: true }
+export type TablePart      = { kind: 'table'; hint?: string; isOptional?: true; tableFilter?: (table: { headers: string[]; rows: string[][] }) => boolean }
 export type ListPart       = { kind: 'list'; example?: string; filter?: (items: string[]) => boolean; hint?: string; isOptional?: true; minCount?: number; someChecks?: ItemConstraintBuilder[] }
 
 export type ListPartWithSome<L extends string> = { kind: 'list'; someConstraint: LabeledConstraint<L> }
@@ -271,6 +271,15 @@ export type InferSchema<S extends Record<string, SchemaPart>> =
 // --- Builders for primitives ---
 
 export interface CodeblockBuilder extends CodeblockPart {
+  /** Verbatim example shown in the prompt as a fenced code block. */
+  example(ex: string): CodeblockBuilder
+  /** Short description of expected content format. */
+  /**
+   * Validate or describe codeblock content.
+   * - RegExp: content must match (used in routing/validation)
+   * - string: description shown in prompt
+   */
+  content(match: string | RegExp): CodeblockBuilder
   optional(): CodeblockPart & { isOptional: true }
 }
 
@@ -283,6 +292,8 @@ export interface BoolBuilder extends BoolPart {
 }
 
 export interface TableBuilder extends TablePart {
+  /** Filter by table content (e.g. validate headers). */
+  match(fn: (table: { headers: string[]; rows: string[][] }) => boolean): TableBuilder
   optional(): TablePart & { isOptional: true }
 }
 
@@ -290,10 +301,17 @@ export interface BlockquoteBuilder extends BlockquotePart {
   optional(): BlockquotePart & { isOptional: true }
 }
 
-export const codeblock = (lang?: string, example?: string): CodeblockBuilder => ({
-  kind: 'codeblock', lang, example,
-  optional() { return { kind: 'codeblock', lang, example, isOptional: true as const } },
-})
+function makeCodeblock(lang?: string, exampleCode?: string, contentMatch?: string | RegExp): CodeblockBuilder {
+  return {
+    kind: 'codeblock', lang, exampleCode, contentMatch,
+    example(ex: string) { return makeCodeblock(lang, ex, contentMatch) },
+    content(match: string | RegExp) { return makeCodeblock(lang, exampleCode, match) },
+    optional() { return { kind: 'codeblock', lang, exampleCode, contentMatch, isOptional: true as const } },
+  }
+}
+
+export const codeblock = (lang?: string, exampleCode?: string): CodeblockBuilder =>
+  makeCodeblock(lang, exampleCode)
 
 export const text = (until?: string, label?: boolean): TextBuilder => ({
   kind: 'text', until, label,
@@ -305,10 +323,16 @@ export const bool = (): BoolBuilder => ({
   optional() { return { kind: 'bool', isOptional: true as const } },
 })
 
-export const table = (): TableBuilder => ({
-  kind: 'table',
-  optional() { return { kind: 'table', isOptional: true as const } },
-})
+function makeTable(tableFilter?: (table: { headers: string[]; rows: string[][] }) => boolean): TableBuilder {
+  return {
+    kind: 'table',
+    tableFilter,
+    match(fn) { return makeTable(fn) },
+    optional() { return { kind: 'table', tableFilter, isOptional: true as const } },
+  }
+}
+
+export const table = (): TableBuilder => makeTable()
 
 export const blockquote = (options?: Omit<BlockquotePart, 'kind'>): BlockquoteBuilder => ({
   kind: 'blockquote', ...options,
@@ -324,26 +348,24 @@ export interface HeadingSection {
   [field: string]: any
 }
 
-/** After .split() — no .content() available (split and content are mutually exclusive) */
-export interface HeadingSplitBuilder extends HeadingPart {
-  split(sep: string, name: string, type?: MetaType | string): HeadingSplitBuilder
-  parse(markdown: string): { intro: string; sections: HeadingSection[] }
-  toPrompt(): string
-  optional(): HeadingPart & { isOptional: true }
-}
-
-/** Initial heading builder — .content() or .split(), not both */
+/** Heading builder — supports chaining .content() and .split() in any order */
 export interface HeadingBuilder extends HeadingPart {
-  /** Require the heading text to match exactly. Mutually exclusive with .split(). */
-  content(match: string | RegExp): HeadingPart & { optional(): HeadingPart & { isOptional: true } }
-  /** Embed structured metadata in headings. Mutually exclusive with .content(). */
-  split(sep: string, name: string, type?: MetaType | string): HeadingSplitBuilder
+  /**
+   * Require the heading prefix (text before the first separator, or full text if no splits) to match.
+   * Can be combined with .split().
+   */
+  content(match: string | RegExp): HeadingBuilder
+  /** Embed structured metadata in headings. Can be combined with .content(). */
+  split(sep: string, name: string, type?: MetaType | string): HeadingBuilder
   parse(markdown: string): { intro: string; sections: HeadingSection[] }
   toPrompt(): string
   optional(): HeadingPart & { isOptional: true }
 }
 
-function makeHeadingBuilder(level?: number | number[], separates?: SeparateField[]): HeadingBuilder {
+/** @deprecated Use HeadingBuilder — content() and split() are no longer mutually exclusive */
+export type HeadingSplitBuilder = HeadingBuilder
+
+function makeHeadingBuilder(level?: number | number[], separates?: SeparateField[], storedContentMatch?: string | RegExp): HeadingBuilder {
   const lvl = Array.isArray(level) ? level[0] : (level ?? 2)
   const seps = separates ?? []
 
@@ -351,22 +373,18 @@ function makeHeadingBuilder(level?: number | number[], separates?: SeparateField
     kind: 'heading',
     level,
     separates: seps.length > 0 ? seps : undefined,
+    contentMatch: storedContentMatch,
     hint: undefined,
 
-    content(match: string | RegExp) {
-      return {
-        kind: 'heading' as const, level, contentMatch: match,
-        optional(): HeadingPart & { isOptional: true } {
-          return { kind: 'heading', level, contentMatch: match, isOptional: true as const }
-        },
-      }
+    content(match: string | RegExp): HeadingBuilder {
+      return makeHeadingBuilder(level, seps, match)
     },
 
-    split(sep: string, name: string, typeOrExample?: MetaType | string): HeadingSplitBuilder {
+    split(sep: string, name: string, typeOrExample?: MetaType | string): HeadingBuilder {
       const type: MetaType = typeof typeOrExample === 'string'
         ? { parse: (s) => s, match: /.+/, describe: () => typeOrExample, example: () => typeOrExample }
         : (typeOrExample ?? textMeta)
-      return makeHeadingBuilder(level, [...seps, { sep, name, type }])
+      return makeHeadingBuilder(level, [...seps, { sep, name, type }], storedContentMatch)
     },
 
 
@@ -440,7 +458,7 @@ function makeHeadingBuilder(level?: number | number[], separates?: SeparateField
     },
 
     optional(): HeadingPart & { isOptional: true } {
-      return { kind: 'heading', level, separates: seps.length > 0 ? seps : undefined, isOptional: true as const }
+      return { kind: 'heading', level, separates: seps.length > 0 ? seps : undefined, contentMatch: storedContentMatch, isOptional: true as const }
     },
   }
 }

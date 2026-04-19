@@ -248,16 +248,28 @@ export function diagnose(markdown: string, schema: Record<string, SchemaPart>): 
     }
 
     if (part.kind === 'table') {
-      if (!extractTable(ast, consumed)) {
+      const tableData = extractTable(ast, consumed)
+      if (!tableData) {
         if (part.isOptional) continue
         errors.push({ field: key, reason: 'no table found' }); continue
+      }
+      if (part.tableFilter && !part.tableFilter(tableData)) {
+        errors.push({ field: key, reason: 'table does not match filter' }); continue
       }
       continue
     }
 
     let value: string | string[] = ''
     switch (part.kind) {
-      case 'codeblock': value = extractCodeblock(ast, consumed, part.lang); break
+      case 'codeblock': {
+        value = extractCodeblock(ast, consumed, part.lang)
+        if (part.contentMatch instanceof RegExp && typeof value === 'string' && value) {
+          if (!part.contentMatch.test(value)) {
+            errors.push({ field: key, reason: `codeblock content does not match pattern ${part.contentMatch}` })
+          }
+        }
+        break
+      }
       case 'list': value = extractList(ast, consumed); break
       case 'text': value = part.label ? extractLabel(ast, key) : extractText(ast, consumed, part.until); break
       case 'heading': {

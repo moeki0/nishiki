@@ -216,10 +216,24 @@ export function route(markdown: string, renderers: RendererDefinition[]): Render
         routed.push({ renderer: null, markdown: matchedMd })
       }
 
-      // 余りのノードは散文として出力
+      // 余りのノードは再ルーティング（codeblock等が含まれる場合に対応）
       if (matchEnd < seg.nodes.length) {
-        const remainingMd = nodesToMarkdown(seg.nodes.slice(matchEnd))
-        routed.push({ renderer: null, markdown: remainingMd })
+        const remainingNodes = seg.nodes.slice(matchEnd)
+        const groups = groupNodes(remainingNodes)
+        for (let i = 0; i < groups.length; i++) {
+          // Named code block
+          if (groups[i].length === 1 && groups[i][0].type === 'code' && (groups[i][0] as Code).lang) {
+            const codeNode = groups[i][0] as Code
+            const namedRenderer = renderers.find(r => r.name === codeNode.lang)
+            if (namedRenderer) {
+              if (matchesSchema(codeNode.value, namedRenderer.schema)) {
+                routed.push({ renderer: namedRenderer, markdown: codeNode.value })
+                continue
+              }
+            }
+          }
+          routed.push(resolveNodes(groups[i]))
+        }
       }
     } else {
       // 名前なしセグメント: 従来のグループ分割 + スキーママッチ

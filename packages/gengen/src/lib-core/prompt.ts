@@ -39,9 +39,16 @@ function partToSentence(key: string, part: SchemaPart): string {
         : `write ${key} as a bullet list (- item)`
       break
     }
-    case 'codeblock':
-      base = `write ${key} as a \`\`\`${part.lang ?? ''} fenced code block`
+    case 'codeblock': {
+      const lang = part.lang ?? ''
+      base = `write ${key} as a \`\`\`${lang} fenced code block`
+      if (part.contentMatch) {
+        const fmt = part.contentMatch instanceof RegExp ? String(part.contentMatch) : part.contentMatch
+        base += `\n  Format: ${fmt}`
+      }
+      if (part.exampleCode) base += `\n  Example:\n  \`\`\`${lang}\n${part.exampleCode.split('\n').map(l => `  ${l}`).join('\n')}\n  \`\`\``
       break
+    }
     case 'heading':
       base = `write ${key} as a Markdown heading (## ...)`
       break
@@ -83,6 +90,15 @@ function schemaToLine(def: SchemaDefinition): string {
   return `A **${def.name}** block (write as: ### ${def.name} heading, then content below)${def.description ? ` — ${def.description}` : ''}${fields ? `\n${fields}` : ''}`
 }
 
+function schemaToRefEntry(def: SchemaDefinition): string {
+  const lines: string[] = []
+  lines.push(`**${def.name}**${def.description ? ` — ${def.description}` : ''}`)
+  if (def.trigger) lines.push(`↳ Use when: ${def.trigger}`)
+  const fields = schemaToSentences(def.schema)
+  if (fields) lines.push(fields)
+  return lines.join('\n')
+}
+
 function flowNodeToLines(node: FlowNode, indent: string): string[] {
   if (isInlineSchema(node)) {
     const [open, close] = node.marker
@@ -95,8 +111,18 @@ function flowNodeToLines(node: FlowNode, indent: string): string[] {
     return [node.hint ? `${indent}A prose paragraph: ${node.hint}` : `${indent}A prose paragraph`]
   }
   if (node._kind === 'oneOf') {
+    // Single-block optional pick: show trigger inline for maximum visibility
+    if (node.isOptional && node.choices.length === 1) {
+      const choice = node.choices[0]
+      const trigger = (choice as SchemaDefinition).trigger
+      const line = trigger
+        ? `Optionally: **${choice.name}** — ${trigger}`
+        : `Optionally: **${choice.name}**`
+      return [`${indent}${line}`]
+    }
     const names = node.choices.map(c => `**${c.name}**`).join(', ')
-    return [`${indent}One of: ${names}`]
+    const prefix = node.isOptional ? 'Optionally, one of' : 'One of'
+    return [`${indent}${prefix}: ${names}`]
   }
   if (node._kind === 'loop') {
     const lines = [`${indent}Repeat the following as needed:`]
@@ -150,14 +176,14 @@ export function prompt(input: Flow | FlowNode[]): string {
   if (renderers.length === 1) {
     const def = renderers[0]
     if (def.description) sections.push(def.description)
+    if (def.trigger) sections.push(`↳ Use when: ${def.trigger}`)
     const schemaLines = schemaToSentences(def.schema)
     if (schemaLines) { sections.push(''); sections.push(schemaLines) }
   } else if (renderers.length > 1) {
     sections.push('Choose the most appropriate format for your response. You may combine multiple formats.')
     sections.push('')
     for (const def of renderers) {
-      sections.push(`**${def.name}** — ${def.description ?? ''}`)
-      sections.push(schemaToSentences(def.schema))
+      sections.push(schemaToRefEntry(def))
       sections.push('')
     }
   }
@@ -196,8 +222,7 @@ function flowPrompt(nodes: FlowNode[]): string {
     sections.push('Block format reference:')
     sections.push('')
     for (const def of blocks) {
-      sections.push(`**${def.name}** — ${def.description ?? ''}`)
-      sections.push(schemaToSentences(def.schema))
+      sections.push(schemaToRefEntry(def))
       sections.push('')
     }
   }
