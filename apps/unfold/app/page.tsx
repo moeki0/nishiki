@@ -83,6 +83,31 @@ const FEATURED_TOPICS: FeaturedTopic[] = [
 type WikiSummary = { image?: string }
 type Turn = { role: 'assistant' | 'user'; content: string }
 
+function saveDialogueCache(topic: string, state: { turns: Turn[]; intro: string; wiki: WikiSummary; footnotes: Map<number, Footnote> }) {
+  try {
+    sessionStorage.setItem(`unfold:${topic}`, JSON.stringify({
+      turns: state.turns,
+      intro: state.intro,
+      wiki: state.wiki,
+      footnotes: Array.from(state.footnotes.entries()),
+    }))
+  } catch { /* quota exceeded or unavailable */ }
+}
+
+function loadDialogueCache(topic: string): { turns: Turn[]; intro: string; wiki: WikiSummary; footnotes: Map<number, Footnote> } | null {
+  try {
+    const raw = sessionStorage.getItem(`unfold:${topic}`)
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    return {
+      turns: data.turns as Turn[],
+      intro: data.intro as string,
+      wiki: data.wiki as WikiSummary,
+      footnotes: new Map(data.footnotes as [number, Footnote][]),
+    }
+  } catch { return null }
+}
+
 async function fetchWikiImage(topic: string): Promise<WikiSummary> {
   try {
     const imgRes = await fetch('/api/images', {
@@ -167,7 +192,20 @@ export default function Home() {
       const q = new URLSearchParams(window.location.search).get('q')
       if (q) {
         setTopic(q)
-        startDialogue(q, false)
+        // Restore from sessionStorage — survives component remounts unlike useRef
+        const cached = loadDialogueCache(q)
+        if (cached) {
+          setCurrentTopic(q)
+          setTurns(cached.turns)
+          setIntro(cached.intro)
+          setWiki(cached.wiki)
+          setFootnotes(cached.footnotes)
+          setFork(null)
+          setRawTurns(new Set())
+          setPhase('ready')
+        } else {
+          startDialogue(q, false)
+        }
       } else {
         abortRef.current?.abort()
         forkAbortRef.current?.abort()
@@ -277,6 +315,10 @@ export default function Home() {
     abortRef.current?.abort()
     forkAbortRef.current?.abort()
     introAbortRef.current?.abort()
+    // Save current page to sessionStorage before navigating away
+    if (pushHistory && currentTopic && turns.length > 0) {
+      saveDialogueCache(currentTopic, { turns, intro, wiki, footnotes })
+    }
     setCurrentTopic(t)
     setTurns([])
     setWiki({})
@@ -287,6 +329,16 @@ export default function Home() {
     setPhase('loading')
     if (pushHistory) {
       window.history.pushState(null, '', `?q=${encodeURIComponent(t)}`)
+    }
+    // Restore from sessionStorage if available (survives remounts)
+    const cached = loadDialogueCache(t)
+    if (cached) {
+      setTurns(cached.turns)
+      setIntro(cached.intro)
+      setWiki(cached.wiki)
+      setFootnotes(cached.footnotes)
+      setPhase('ready')
+      return
     }
     // Fire intro + image + dialogue in parallel
     streamIntro(t)
