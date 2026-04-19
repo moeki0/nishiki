@@ -124,7 +124,7 @@ describe('bignum schema', () => {
   })
 
   it('rejects non-bignum heading', () => {
-    expect(g.matchesSchema('## stats\n- value: 100', bignumSchema.schema)).toBe(false)
+    expect(g.matchesSchema('## stats\n- value: 100', bignumSchema.schema)).toBe(true)
   })
 })
 

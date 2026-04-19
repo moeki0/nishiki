@@ -1,77 +1,109 @@
-'use client'
+"use client";
 
-import { g } from '@moeki0/gengen'
-import { useInlineText } from '@moeki0/gengen/react'
-import { bignumSchema } from './bignum.schema'
+import { g } from "@moeki0/gengen";
+import { useInlineText } from "@moeki0/gengen/react";
+import { bignumSchema } from "./bignum.schema";
 
-type Item = { label: string; value: string }
+type Item = { label: string; value: string };
 
-function splitNumeric(value: string): { pre: string; num: string; post: string } {
-  const m = value.match(/^(.*?)([\d,，.．]+(?:\s*[〜~–\-]\s*[\d,，.．]+)?)(.*)$/)
-  if (!m) return { pre: '', num: value, post: '' }
-  return { pre: m[1].trim(), num: m[2].trim(), post: m[3].trim() }
+function splitNumeric(value: string): {
+  pre: string;
+  num: string;
+  post: string;
+} {
+  const m = value.match(
+    /^(.*?)([\d,，.．]+(?:\s*[〜~–\-]\s*[\d,，.．]+)?)(.*)$/,
+  );
+  if (!m) return { pre: "", num: value, post: "" };
+  return { pre: m[1].trim(), num: m[2].trim(), post: m[3].trim() };
 }
 
-function BignumRenderer({ items }: { heading: string; items: Item[] }) {
-  const inlineText = useInlineText()
+function BignumRenderer({ items }: { items: Item[] }) {
+  const inlineText = useInlineText();
   return (
-    <div style={{
-      margin: '1.5rem 0',
-      borderTop: '1px solid #eee',
-      borderBottom: '1px solid #eee',
-      padding: '1.25rem 0',
-      fontFamily: 'var(--font-sans)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '1.25rem',
-    }}>
+    <div
+      style={{
+        margin: "1.5rem 0",
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "0.75rem",
+        fontFamily: "var(--font-sans)",
+      }}
+    >
       {items.map((item, i) => {
-        const { pre, num, post } = splitNumeric(item.value)
-        const isFirst = i === 0
+        const { pre, num, post } = splitNumeric(item.value);
         return (
-          <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
-            <p style={{
-              fontSize: '0.75rem',
-              color: '#888',
-              margin: 0,
-              lineHeight: 1.4,
-              flexShrink: 1,
+          <div
+            key={i}
+            style={{
+              flex: "1 1 140px",
               minWidth: 0,
-            }}>
+              background: "#fafafa",
+              border: "1px solid #e8e8e8",
+              borderRadius: "12px",
+              padding: "1.25rem 1.5rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.35rem",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 500,
+                color: "#999",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                lineHeight: 1.3,
+              }}
+            >
               {inlineText(item.label)}
-            </p>
-            <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.15em', flexShrink: 0 }}>
+            </span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: "0.2em",
+                flexWrap: "wrap",
+              }}
+            >
               {pre && (
-                <span style={{ fontSize: '1rem', color: '#888', fontWeight: 400 }}>{pre}</span>
+                <span style={{ fontSize: "0.9rem", color: "#aaa", fontWeight: 400 }}>
+                  {pre}
+                </span>
               )}
-              <span style={{
-                fontSize: isFirst ? 'clamp(2.5rem, 7vw, 4rem)' : 'clamp(1.75rem, 4vw, 2.5rem)',
-                fontWeight: 900,
-                lineHeight: 1,
-                letterSpacing: '-0.04em',
-                color: '#cc3300',
-                fontVariantNumeric: 'tabular-nums',
-              }}>
+              <span
+                style={{
+                  fontSize: "clamp(1.75rem, 4vw, 2.5rem)",
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  letterSpacing: "-0.03em",
+                  color: "#111",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
                 {num}
               </span>
               {post && (
-                <span style={{
-                  fontSize: isFirst ? '1.125rem' : '0.875rem',
-                  color: '#555',
-                  fontWeight: 600,
-                }}>
+                <span
+                  style={{
+                    fontSize: "0.9rem",
+                    color: "#666",
+                    fontWeight: 600,
+                  }}
+                >
                   {post}
                 </span>
               )}
-            </span>
+            </div>
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
-export default g.block('bignum', {
+export default g.block("bignum", {
   ...bignumSchema,
   component: BignumRenderer,
-})
+});
