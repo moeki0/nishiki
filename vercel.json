@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd apps/unfold && npm run build",
+  "buildCommand": "cd packages/gengen && npm run build && cd ../../apps/unfold && npm run build",
   "outputDirectory": "apps/unfold/.next",
   "installCommand": "npm install",
   "framework": "nextjs"
