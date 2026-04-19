@@ -185,7 +185,7 @@ export default function Home() {
       let resolved = text
       for (const name of names) {
         const url = imageMap[name]
-        if (url) resolved = resolved.replaceAll(`![${name}]()`, `![${name}](${url})`)
+        if (url) resolved = resolved.replaceAll(`![${name}]()`, `\n\n![${name}](${url})\n\n`)
       }
       if (resolved !== text) {
         setTurns([...priorTurns, { role: 'assistant', content: resolved }])
