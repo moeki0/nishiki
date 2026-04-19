@@ -35,9 +35,12 @@ function QuizRenderer({ question, choices, answer }: { label: string; question: 
           else if (revealed) { color = '#aaa' }
 
           return (
-            <button
+            <div
               key={i}
+              role="button"
+              tabIndex={0}
               onClick={() => handleSelect(choice)}
+              onKeyDown={e => e.key === 'Enter' && handleSelect(choice)}
               style={{
                 textAlign: 'left', background: bg, border, borderRadius: '6px',
                 padding: '0.6rem 0.875rem', fontSize: '0.875rem', color,
@@ -48,7 +51,7 @@ function QuizRenderer({ question, choices, answer }: { label: string; question: 
               {revealed && isCorrect && '✓ '}
               {revealed && isSelected && !isCorrect && '✗ '}
               {inlineText(cleanChoice(choice))}
-            </button>
+            </div>
           )
         })}
       </div>

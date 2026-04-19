@@ -37,9 +37,12 @@ function RoleplayRenderer({ prompt, choices }: { heading: string; prompt: string
         {inlineText(prompt)}
       </p>
       {choices.map((c, i) => (
-        <button
+        <div
           key={i}
+          role="button"
+          tabIndex={0}
           onClick={() => setPicked(i)}
+          onKeyDown={e => e.key === 'Enter' && setPicked(i)}
           style={{
             display: 'block', width: '100%', textAlign: 'left',
             background: picked === i ? '#111' : '#fafafa',
@@ -68,7 +71,7 @@ function RoleplayRenderer({ prompt, choices }: { heading: string; prompt: string
           }}
         >
           {c.label}
-        </button>
+        </div>
       ))}
       {picked !== null && choices[picked]?.outcome && (
         <div style={{
