@@ -47,6 +47,18 @@ export const Card = cardSchema
   .component(({ title, body }) => <div>{title}: {body}</div>)
 // → RendererDefinition — pass to <Gengen>`}</Pre>
         <P>The name is used for routing: a <code>### card</code> heading or a <code>```card</code> fenced block in the LLM output will match this renderer.</P>
+        <P>
+          The object-style overload also accepts a <code>trigger</code> field — a hint that tells the LLM <em>when</em> to use this block.
+          It is shown in the prompt with a <code>↳ Use when:</code> prefix.
+        </P>
+        <Pre>{`const warning = g.block('warning', {
+  schema: { text: g.text() },
+  description: 'A warning callout.',
+  trigger: 'there is a risk, caveat, or known limitation',
+})
+// prompt output:
+// **warning** — A warning callout.
+// ↳ Use when: there is a risk, caveat, or known limitation`}</Pre>
       </Section>
 
       {/* ── g.inline() ── */}
@@ -101,10 +113,16 @@ const Highlight = g.inline('highlight')
         </SubSection>
 
         <SubSection title="g.codeblock(lang?)">
-          <P>A fenced code block.</P>
+          <P>A fenced code block. Supports <code>.example()</code> and <code>.content()</code> for prompt generation and validation.</P>
           <Pre>{`schema: {
   code: g.codeblock('tsx'),    // \`\`\`tsx ... \`\`\`
   sql:  g.codeblock('sql').optional(),
+  // Show a verbatim example in the prompt:
+  query: g.codeblock('sql').example('SELECT * FROM users WHERE id = 1'),
+  // Describe expected content format (shown in prompt):
+  note: g.codeblock('md').content('a single bullet list'),
+  // Validate content with a regex (used in routing):
+  csv: g.codeblock('csv').content(/^[^,\\n]+,[^,\\n]+/),
 }`}</Pre>
         </SubSection>
 
@@ -116,7 +134,7 @@ const Highlight = g.inline('highlight')
         </SubSection>
 
         <SubSection title="g.heading(level?)">
-          <P>A Markdown heading. Supports structured metadata via <code>.split()</code> or exact-match via <code>.content()</code>.</P>
+          <P>A Markdown heading. Supports structured metadata via <code>.split()</code> and exact-match via <code>.content()</code>. Both can be chained together.</P>
           <Pre>{`// Simple heading (any ##)
 schema: { section: g.heading(2) }
 
@@ -130,16 +148,26 @@ const h = g.heading(2)
 // Parse a heading-structured markdown directly
 const { intro, sections } = h.parse(markdown)
 
-// Exact-match heading
-schema: { title: g.heading(1).content('Summary') }`}</Pre>
+// Exact-match heading (matches full text or prefix before first separator)
+schema: { title: g.heading(1).content('Summary') }
+
+// content() and split() are composable — use both together
+const event = g.heading(2).content('Event').split(': ', 'year', g.yearStr('year'))
+// Matches: "## Event: 1789"
+// Parsed as: { text: "Event", year: "1789" }`}</Pre>
         </SubSection>
 
         <SubSection title="g.table()">
-          <P>A GFM Markdown table. Inferred type: <code>{"{ headers: string[]; rows: string[][] }"}</code>.</P>
+          <P>A GFM Markdown table. Inferred type: <code>{"{ headers: string[]; rows: string[][] }"}</code>. Use <code>.match()</code> to filter by content.</P>
           <Pre>{`schema: {
   data: g.table(),
 }
-// Component receives: { headers: ['Name', 'Value'], rows: [['a', '1'], ...] }`}</Pre>
+// Component receives: { headers: ['Name', 'Value'], rows: [['a', '1'], ...] }
+
+// Require specific headers (used in routing/validation):
+schema: {
+  scores: g.table().match(({ headers }) => headers.includes('Score')),
+}`}</Pre>
         </SubSection>
 
         <SubSection title="g.blockquote()">
@@ -233,6 +261,7 @@ const systemPrompt = g.prompt([
           ['g.prose(hint?)', 'ProseNode', 'A plain prose paragraph. Optional hint for the LLM.'],
           ['g.loop([...nodes])', 'LoopNode', 'Repeat the child nodes as many times as needed.'],
           ['g.pick(...schemas)', 'OneOfNode', 'Choose one of the given schemas.'],
+          ['g.pick(...schemas).optional()', 'OneOfNode', 'Optionally include one of the given schemas.'],
           ['g.flow([...nodes])', 'Flow', 'Wrap nodes into a Flow object (optional convenience).'],
         ]} />
       </Section>

@@ -121,6 +121,28 @@ const article = g.block('article')
 
 All parts except `g.inline()` support `.optional()`, which marks the field as may-be-absent. The LLM may omit the block, and the prop type becomes `T | undefined`.
 
+---
+
+## Codeblock extensions
+
+```ts
+// Show a verbatim example in the prompt
+g.codeblock('ts').example('const x = 1')
+
+// Describe expected content format (string shown in prompt)
+g.codeblock('sql').content('a single SELECT statement')
+
+// Validate content with a regex (used in routing/validation)
+g.codeblock('csv').content(/^[^,\n]+,[^,\n]+/)
+```
+
+## Table extensions
+
+```ts
+// Filter by table content — e.g. require specific headers
+g.table().match(({ headers }) => headers.includes('Name'))
+```
+
 ```ts
 const card = g.block('card')
   .schema({
@@ -172,6 +194,10 @@ g.heading([2, 3])                             // multiple levels
 g.heading(3).content('quiz')                  // must match text (case-insensitive)
 g.heading([2, 3]).content(/^(quiz|クイズ)$/i)   // regex match
 g.heading(2).optional()                       // heading may be absent
+
+// content() and split() are composable — use both together
+g.heading(2).content('Event').split(': ', 'year', g.yearStr('year'))
+// Matches: "## Event: 1789"
 ```
 
 ### `.split()` --- structured metadata in headings
@@ -284,6 +310,7 @@ const systemPrompt = g.prompt(documentFlow)
 | `g.prose(hint?)` | A prose paragraph (optional hint for the LLM) |
 | `g.loop(nodes)` | Repeat the child nodes as needed |
 | `g.pick(...schemas)` | LLM picks one of the given block types |
+| `g.pick(...schemas).optional()` | LLM may optionally include one of the given block types |
 
 ---
 
@@ -317,6 +344,19 @@ const diff = g.block('diff', {
   component: DiffView,
   description: 'A unified diff.',
 })
+```
+
+**`trigger`** — an optional hint that tells the LLM *when* to use this block. Shown in the prompt with a `↳ Use when:` prefix. Only available in the object-style overload.
+
+```ts
+const warning = g.block('warning', {
+  schema: { text: g.text() },
+  description: 'A warning callout.',
+  trigger: 'there is a risk, caveat, or known limitation',
+})
+// prompt output:
+// **warning** — A warning callout.
+// ↳ Use when: there is a risk, caveat, or known limitation
 ```
 
 ### `g.prompt(definitions)`
