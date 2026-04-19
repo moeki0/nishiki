@@ -21,9 +21,10 @@ export type Footnote = {
   sources: { title: string; url: string }[]
 }
 
-function FootnoteMarker({ text, footnotes }: { text: string; footnotes?: Map<number, Footnote> }) {
+function FootnoteMarker({ text, footnotes, loading }: { text: string; footnotes?: Map<number, Footnote>; loading?: boolean }) {
   const num = parseInt(text, 10)
   const footnote = footnotes?.get(num)
+  const isLoading = loading && !footnote
   const [open, setOpen] = useState(false)
   const [arrowEl, setArrowEl] = useState<HTMLSpanElement | null>(null)
 
@@ -56,7 +57,9 @@ function FootnoteMarker({ text, footnotes }: { text: string; footnotes?: Map<num
         ref={refs.setReference}
         {...getReferenceProps()}
         style={{
-          display: 'inline-block',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '2px',
           fontSize: '0.6em',
           lineHeight: 1,
           verticalAlign: 'super',
@@ -71,8 +74,20 @@ function FootnoteMarker({ text, footnotes }: { text: string; footnotes?: Map<num
           fontWeight: 600,
           transition: 'background 0.15s',
         }}
-        title={footnote ? '出典を確認' : '確認中...'}
+        title={footnote ? '出典を確認' : isLoading ? '確認中...' : ''}
       >
+        {isLoading && (
+          <span style={{
+            display: 'inline-block',
+            width: '0.7em',
+            height: '0.7em',
+            borderRadius: '50%',
+            border: '1.5px solid #ddd',
+            borderTopColor: '#aaa',
+            animation: 'spin 0.8s linear infinite',
+            flexShrink: 0,
+          }} />
+        )}
         {num}
       </button>
 
@@ -143,10 +158,10 @@ function FootnoteMarker({ text, footnotes }: { text: string; footnotes?: Map<num
   )
 }
 
-export const makeFootnoteRenderer = (footnotes: Map<number, Footnote>) =>
+export const makeFootnoteRenderer = (footnotes: Map<number, Footnote>, loading?: boolean) =>
   g.inline('footnote', {
     ...footnoteInline,
     component: ({ text }: { text: string }) => (
-      <FootnoteMarker text={text} footnotes={footnotes} />
+      <FootnoteMarker text={text} footnotes={footnotes} loading={loading} />
     ),
   })

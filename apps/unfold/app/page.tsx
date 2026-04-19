@@ -149,7 +149,7 @@ export default function Home() {
   const forkAbortRef = useRef<AbortController | null>(null)
   const introAbortRef = useRef<AbortController | null>(null)
 
-  const renderers = [...blockRenderers, deepdiveRenderer, boldRenderer, makeFootnoteRenderer(footnotes)]
+  const renderers = [...blockRenderers, deepdiveRenderer, boldRenderer, makeFootnoteRenderer(footnotes, factcheckLoading)]
 
   const active = turns.length > 0 || phase === 'loading' || phase === 'streaming'
   const [hoveredTopic, setHoveredTopic] = useState<number | null>(null)
@@ -1287,22 +1287,6 @@ export default function Home() {
           )}
         </div>
       </div>
-
-      {/* ── Factcheck loading ── */}
-      {factcheckLoading && (
-        <div style={{
-          position: 'fixed', bottom: '5rem', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 31, display: 'flex', alignItems: 'center', gap: '0.5rem',
-          background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(0,0,0,0.08)', borderRadius: '999px',
-          padding: '0.375rem 0.875rem', fontSize: '0.75rem', color: '#999',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-          pointerEvents: 'none',
-        }}>
-          <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', border: '1.5px solid #ddd', borderTopColor: '#aaa', animation: 'spin 0.8s linear infinite' }} />
-          裏取り中...
-        </div>
-      )}
 
       {/* ── Input ── */}
       <div style={{ position: 'fixed', bottom: '1.25rem', left: 0, right: 0, zIndex: 30, display: 'flex', justifyContent: 'center', padding: '0 1rem' }}>
