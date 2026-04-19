@@ -10,8 +10,10 @@ const SLICES_BC = [123000, 10000, 8000, 5000, 4000, 3000, 2000, 1500, 1000, 700,
 const SLICES_AD = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1279, 1300, 1400, 1492, 1500, 1530, 1600, 1650, 1700, 1715, 1783, 1800, 1815, 1880, 1900, 1914, 1920, 1930, 1938, 1945, 1960, 1994, 2000, 2010]
 const BASE_URL = 'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson'
 
-function yearToGeoJsonUrl(yearStr: string): string {
-  const num = parseInt(yearStr.replace(/[^0-9\-]/g, ''), 10)
+export function yearToGeoJsonUrl(yearStr: string): string {
+  const isBC = /^(紀?元?前|B\.?C\.)/.test(yearStr.trim())
+  const digitMatch = yearStr.match(/\d{1,4}/)
+  const num = digitMatch ? (isBC ? -parseInt(digitMatch[0], 10) : parseInt(digitMatch[0], 10)) : NaN
   if (isNaN(num)) return `${BASE_URL}/world_2000.geojson`
   if (num <= 0) {
     const bc = Math.abs(num) || 1
@@ -28,9 +30,9 @@ function stripLinks(s: string): string {
   return s.replace(/\[\[([^\]]+)\]\]/g, '$1')
 }
 
-function parseFrames(raw: string): Frame[] {
+export function parseFrames(raw: string): Frame[] {
   return raw.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
-    const colonIdx = line.indexOf(':')
+    const colonIdx = line.search(/[：:]/)
     if (colonIdx === -1) return null
     const year = line.slice(0, colonIdx).trim()
     const rest = stripLinks(line.slice(colonIdx + 1).trim())

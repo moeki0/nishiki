@@ -3,6 +3,9 @@ import { g } from '@moeki0/gengen'
 
 // Import schemas directly to avoid React component deps
 import { pullquoteSchema } from '../pullquote.schema'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore – 'use client' component, import only pure utilities
+import { parseFrames, yearToGeoJsonUrl } from '../animap'
 import { compareSchema } from '../compare.schema'
 import { termcardSchema } from '../termcard.schema'
 import { bignumSchema } from '../bignum.schema'
@@ -245,6 +248,51 @@ describe('animap schema', () => {
 
   it('rejects non-animap codeblock', () => {
     expect(g.matchesSchema('```network\nA → B: 対立\n```', animapSchema.schema)).toBe(false)
+  })
+
+  // 年月形式（全角コロン）
+  const mdJapanese = '```animap\n1180年5月：京都・宇治 | 以仁王の令旨により源頼政と源頼朝らが平氏打倒の挙兵\n1185年3月：壇ノ浦 | 平宗盛ら平氏一門が滅亡\n```'
+
+  it('matches 年月 format with full-width colon', () => {
+    expect(g.matchesSchema(mdJapanese, animapSchema.schema)).toBe(true)
+  })
+})
+
+describe('animap parseFrames', () => {
+  it('parses standard half-width colon format', () => {
+    const frames = parseFrames('1789: France | Revolution')
+    expect(frames).toHaveLength(1)
+    expect(frames[0].year).toBe('1789')
+    expect(frames[0].countries).toEqual(['France'])
+    expect(frames[0].caption).toBe('Revolution')
+  })
+
+  it('parses full-width colon 年月 format', () => {
+    const frames = parseFrames('1180年5月：京都・宇治 | 以仁王の令旨により挙兵')
+    expect(frames).toHaveLength(1)
+    expect(frames[0].year).toBe('1180年5月')
+    expect(frames[0].countries).toEqual(['京都・宇治'])
+    expect(frames[0].caption).toBe('以仁王の令旨により挙兵')
+  })
+
+  it('strips [[ ]] links from locations', () => {
+    const frames = parseFrames('1185年3月：[[壇ノ浦]] | [[平氏]]一門が滅亡')
+    expect(frames[0].countries).toEqual(['壇ノ浦'])
+    expect(frames[0].caption).toBe('平氏一門が滅亡')
+  })
+})
+
+describe('animap yearToGeoJsonUrl', () => {
+  it('extracts year correctly from 年月 format', () => {
+    const url = yearToGeoJsonUrl('1180年5月')
+    // Should use 1180 (nearest slice to 1180 is 1100)
+    expect(url).toContain('world_1')
+    expect(url).not.toContain('world_2010')
+  })
+
+  it('handles plain year string', () => {
+    const url = yearToGeoJsonUrl('1789')
+    expect(url).toContain('1783')
   })
 })
 
