@@ -294,19 +294,9 @@ export default function Home() {
     await streamDialogue([], t)
   }
 
-  function isMobile() {
-    return typeof window !== 'undefined' && window.innerWidth <= 1024
-  }
-
   function handleAction(action: { type: string; payload: string }) {
     if (action.type === 'deepdive') {
-      // Mobile: navigate to a new page
-      if (isMobile()) {
-        startDialogue(action.payload)
-        return
-      }
-
-      // Desktop: show in right margin
+      // Both mobile and desktop: show fork (mobile = bottom sheet, desktop = right margin)
       forkAbortRef.current?.abort()
       const ctrl = new AbortController()
       forkAbortRef.current = ctrl
@@ -1334,6 +1324,57 @@ export default function Home() {
         </form>
       </div>
 
+      {/* ── Mobile deep dive bottom sheet ── */}
+      <div
+        className="mobile-dd-backdrop"
+        style={{ opacity: fork ? 1 : 0, pointerEvents: fork ? 'auto' : 'none', transition: 'opacity 0.25s' }}
+        onClick={() => { forkAbortRef.current?.abort(); setFork(null) }}
+      />
+      <div
+        className="mobile-dd-sheet"
+        style={{ transform: fork ? 'translateY(0)' : 'translateY(100%)' }}
+      >
+        <div style={{ width: 36, height: 4, background: '#e0e0e0', borderRadius: 2, margin: '0 auto 1rem' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <p style={{ fontSize: '0.6rem', fontWeight: 700, color: '#cc3300', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>DEEP DIVE</p>
+          <button onClick={() => { forkAbortRef.current?.abort(); setFork(null) }}
+            style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', padding: '0.125rem', display: 'flex', alignItems: 'center' }}><X size={14} /></button>
+        </div>
+        {fork && (
+          <>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111', margin: '0 0 0.75rem', fontFamily: 'var(--font-sans)' }}>
+              {fork.term}
+            </h3>
+            {!fork.text ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {[0.9, 0.7, 0.85].map((w, i) => (
+                  <div key={i} style={{ width: `${w * 100}%`, height: '0.75rem', background: '#f0f0f0', borderRadius: '2px', animation: `pulse 1.5s ease-in-out infinite ${i * 0.1}s` }} />
+                ))}
+              </div>
+            ) : (
+              <>
+                <p style={{ fontSize: '0.875rem', color: '#555', lineHeight: 1.7, margin: '0 0 0.75rem', fontFamily: 'var(--font-sans)' }}>
+                  {fork.text.replace(/[#*`_\[\]]/g, '').replace(/\n{2,}/g, '\n').trim()}
+                  {!fork.done && '...'}
+                </p>
+                {fork.done && (
+                  <button
+                    onClick={() => { const t = fork.term; setFork(null); startDialogue(t) }}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: '#111', color: '#fff', border: 'none',
+                      borderRadius: '8px', fontSize: '0.875rem', fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+                    }}>
+                    Explore {fork.term} <ArrowRight size={13} style={{ display: 'inline', verticalAlign: 'middle', marginLeft: '0.25rem' }} />
+                  </button>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
+
       <style>{`
         .manuscript {
           display: grid;
@@ -1379,6 +1420,36 @@ export default function Home() {
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:0.7} }
         @keyframes spin { to { transform: rotate(360deg) } }
+        .mobile-dd-backdrop {
+          display: none;
+        }
+        .mobile-dd-sheet {
+          display: none;
+        }
+        @media (max-width: 1024px) {
+          .mobile-dd-backdrop {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 200;
+          }
+          .mobile-dd-sheet {
+            display: block;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-radius: 16px 16px 0 0;
+            padding: 0.75rem 1.25rem 2.5rem;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 201;
+            transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+          }
+        }
       `}</style>
     </div>
   )
