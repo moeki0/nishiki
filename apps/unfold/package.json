@@ -13,7 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
     "@google/generative-ai": "^0.24.1",
-    "@moeki0/gengen": "workspace:*",
+    "@moeki0/gengen": "file:../../packages/gengen",
     "@vercel/analytics": "^2.0.1",
     "d3-force": "^3.0.0",
     "lucide-react": "^1.8.0",
