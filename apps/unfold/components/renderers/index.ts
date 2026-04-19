@@ -57,3 +57,8 @@ export const boldInline = g.inline('bold', {
   marker: ['**', '**'],
   description: 'Emphasize a key phrase, name, or concept that the reader should pay attention to.',
 })
+
+export const footnoteInline = g.inline('footnote', {
+  marker: ['[^', ']'],
+  description: '引用・年号・固有名詞・数値など、正確性に自信がない箇所に付ける脚注番号。記事全体で通し番号にする。例: 1853年[^1]に来航し、4隻の艦隊[^2]を率いて。注意: 末尾に [^1]: ... のような注釈本文は書かないこと。マーカーのみ埋め込む。',
+})

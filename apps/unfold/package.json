@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
+    "@floating-ui/react": "^0.27.19",
     "@google/generative-ai": "^0.24.1",
     "@moeki0/gengen": "0.0.4",
     "@vercel/analytics": "^2.0.1",
