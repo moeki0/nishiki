@@ -25,9 +25,14 @@ function DefaultMarkdown({ markdown, inlines = [] }: { markdown: string; inlines
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        p: ({ children }) => (
-          <p style={{ color: '#444', lineHeight: 1.8, marginBottom: '1rem', fontSize: '0.9375rem', fontFamily: 'var(--font-sans)' }}>{wrap(children)}</p>
-        ),
+        p: ({ children, node }) => {
+          // Avoid invalid <p><figure> nesting when paragraph contains only an image
+          const isImageOnly = (node as { children?: { type: string; tagName?: string }[] } | undefined)
+            ?.children?.length === 1 &&
+            (node as { children?: { tagName?: string }[] } | undefined)?.children?.[0]?.tagName === 'img'
+          if (isImageOnly) return <div>{children}</div>
+          return <p style={{ color: '#444', lineHeight: 1.8, marginBottom: '1rem', fontSize: '0.9375rem', fontFamily: 'var(--font-sans)' }}>{wrap(children)}</p>
+        },
         ul: ({ children }) => (
           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem' }}>{children}</ul>
         ),
