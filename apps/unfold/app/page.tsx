@@ -150,6 +150,14 @@ export default function Home() {
   const introAbortRef = useRef<AbortController | null>(null)
   const latestUserTurnRef = useRef<HTMLDivElement | null>(null)
 
+  // Save to sessionStorage whenever streaming completes
+  useEffect(() => {
+    if (phase === 'ready' && turns.length > 0 && currentTopic) {
+      saveDialogueCache(currentTopic, { turns, intro, wiki, footnotes })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
   // Scroll to latest user turn when a follow-up question is submitted
   useEffect(() => {
     const lastTurn = turns[turns.length - 1]
