@@ -1105,7 +1105,7 @@ export default function Home() {
                 ) : (
                   <>
                     {intro && (
-                      <div style={{ padding: '0.375rem 0 0.25rem' }}>
+                      <div className="prose-img" style={{ padding: '0.375rem 0 0.25rem' }}>
                         <Gengen markdown={intro} renderers={renderers} context={{ onAction: handleAction }} />
                       </div>
                     )}
@@ -1113,7 +1113,7 @@ export default function Home() {
                       const isSectionStreaming = isStreaming && secIdx === sections.length - 1
                       const mdWithHeading = `## ${sec.text}\n${sec.markdown}`
                       return (
-                        <div key={secIdx} style={{ padding: '0.375rem 0 0.25rem' }}>
+                        <div key={secIdx} className="prose-img" style={{ padding: '0.375rem 0 0.25rem' }}>
                           <Gengen key={`${turnIdx}-${secIdx}`} markdown={mdWithHeading} renderers={renderers} context={{ onAction: handleAction }} />
                           {isSectionStreaming && (
                             <span style={{ display: 'inline-block', width: '2px', height: '1em', background: '#ccc', animation: 'blink 1s step-end infinite' }} />
@@ -1315,18 +1315,12 @@ export default function Home() {
         .ms-center {
           min-width: 0;
         }
-        .ms-center img {
+        .prose-img p img {
           max-width: 500px;
           width: 100%;
           height: auto;
           display: block;
           margin: 2rem auto 0.5rem;
-        }
-        .ms-center img + em, .ms-center figure figcaption {
-          display: block;
-          font-size: 0.8125rem;
-          color: #888;
-          margin-bottom: 1.5rem;
         }
         .ms-right {
           position: sticky;
