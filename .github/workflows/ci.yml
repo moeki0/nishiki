@@ -47,6 +47,8 @@ jobs:
       - run: npm ci
         working-directory: .
 
+      - run: npm ci
+
       - run: npm run build
         working-directory: packages/gengen
 
