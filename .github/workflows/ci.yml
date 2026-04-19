@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gengen:
+    name: gengen (test / lint / typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/gengen
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+        working-directory: .
+
+      - run: npm run test
+      - run: npm run lint
+      - run: npm run typecheck
+
+  unfold:
+    name: unfold (test / lint / typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/unfold
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+        working-directory: .
+
+      - run: npm ci --legacy-peer-deps
+
+      - run: npm run build
+        working-directory: packages/gengen
+
+      - run: npm run test
+      - run: npm run lint
+      - run: npm run typecheck

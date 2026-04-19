@@ -129,6 +129,7 @@ export default function Home() {
   // Auto-start from URL query + detect language
   const startedRef = useRef(false)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsJa(navigator.language.startsWith('ja'))
     if (startedRef.current) return
     const q = new URLSearchParams(window.location.search).get('q')
