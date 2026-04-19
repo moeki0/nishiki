@@ -120,6 +120,8 @@ export default function Home() {
   const [rawTurns, setRawTurns] = useState<Set<number>>(new Set())
   const [footnotes, setFootnotes] = useState<Map<number, Footnote>>(new Map())
   const [factcheckLoading, setFactcheckLoading] = useState(false)
+  const [randomWords, setRandomWords] = useState<{ name: string; year: number }[]>([])
+  const [hoveredGeminiIdx, setHoveredGeminiIdx] = useState<number | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const forkAbortRef = useRef<AbortController | null>(null)
   const introAbortRef = useRef<AbortController | null>(null)
@@ -131,6 +133,19 @@ export default function Home() {
   const [isJa, setIsJa] = useState(true)
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setIsJa(navigator.language.startsWith('ja')) }, [])
+
+  // Fetch random words from Gemini on load
+  useEffect(() => {
+    const existing = FEATURED_TOPICS.map(t => t.ja)
+    fetch('/api/words', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ existing }),
+    })
+      .then(r => r.json())
+      .then(({ words }) => { if (Array.isArray(words)) setRandomWords(words) })
+      .catch(() => {})
+  }, [])
 
   // Auto-start from URL query
   const startedRef = useRef(false)
@@ -408,6 +423,13 @@ export default function Home() {
                   {hoveredYear! < 0 ? `${-hoveredYear!} BC` : `AD ${hoveredYear}`}
                 </span>
               </p>
+            ) : hoveredGeminiIdx !== null ? (
+              <p className="landing-subtitle" style={{ color: '#cc3300' }}>
+                {randomWords[hoveredGeminiIdx].name}
+                <span style={{ opacity: 0.5, marginLeft: '0.5rem', fontSize: '0.875rem' }}>
+                  {randomWords[hoveredGeminiIdx].year < 0 ? `${-randomWords[hoveredGeminiIdx].year} BC` : `AD ${randomWords[hoveredGeminiIdx].year}`}
+                </span>
+              </p>
             ) : (
               <p className="landing-subtitle">Explore the events that shaped our world</p>
             )}
@@ -431,7 +453,10 @@ export default function Home() {
           // Greedy horizontal label placement: push labels right to avoid overlap
           const LABEL_W = 110 // estimated label width in px
           const LABEL_GAP = 4
-          const sorted = FEATURED_TOPICS.map((t, i) => ({ ...t, idx: i })).sort((a, b) => a.year - b.year)
+          const sorted = [
+            ...FEATURED_TOPICS.map((t, i) => ({ ...t, idx: i, source: 'featured' as const })),
+            ...randomWords.map((w, i) => ({ name: w.name, ja: w.name, year: w.year, countries: [] as number[], idx: i, source: 'gemini' as const })),
+          ].sort((a, b) => a.year - b.year)
           // Place labels into rows so they don't overlap horizontally
           const rows: { topic: typeof sorted[0]; leftPct: number; row: number }[] = []
           const rowEnds: number[] = [] // rightmost edge (in %) of each row
@@ -471,13 +496,19 @@ export default function Home() {
                 ))}
                 {/* Topic dots + leader lines + labels */}
                 {rows.map(({ topic: t, leftPct, row }) => {
-                  const isHovered = hoveredTopic === t.idx
+                  const isGemini = t.source === 'gemini'
+                  const isHovered = !isGemini && hoveredTopic === t.idx
+                  const isGeminiHovered = isGemini && hoveredGeminiIdx === t.idx
+                  const active = isHovered || isGeminiHovered
                   const labelTop = TRACK_Y + 14 + row * ROW_H
+                  const dotBg = isGemini ? (isGeminiHovered ? '#1a5a9e' : '#2563a8') : (isHovered ? '#cc3300' : '#aaa')
+                  const labelColor = isGemini ? (isGeminiHovered ? '#1a5a9e' : '#2563a8') : (isHovered ? '#cc3300' : '#777')
+                  const leaderBg = isGemini ? (isGeminiHovered ? 'rgba(37,99,168,0.4)' : 'rgba(37,99,168,0.15)') : (isHovered ? 'rgba(204,51,0,0.4)' : 'rgba(0,0,0,0.06)')
                   return (
-                    <div key={t.idx}
-                      onMouseEnter={() => setHoveredTopic(t.idx)}
-                      onMouseLeave={() => setHoveredTopic(null)}
-                      onClick={() => startDialogue(topicQuery(t))}
+                    <div key={`${t.source}-${t.idx}`}
+                      onMouseEnter={() => isGemini ? setHoveredGeminiIdx(t.idx) : setHoveredTopic(t.idx)}
+                      onMouseLeave={() => isGemini ? setHoveredGeminiIdx(null) : setHoveredTopic(null)}
+                      onClick={() => startDialogue(isGemini ? t.name : topicQuery(t))}
                       style={{ cursor: 'pointer' }}
                     >
                       {/* Dot on the line */}
@@ -485,14 +516,14 @@ export default function Home() {
                         position: 'absolute',
                         left: `${leftPct}%`,
                         top: TRACK_Y - 3,
-                        width: isHovered ? 8 : 5,
-                        height: isHovered ? 8 : 5,
+                        width: active ? 8 : 5,
+                        height: active ? 8 : 5,
                         borderRadius: '50%',
-                        background: isHovered ? '#cc3300' : '#aaa',
+                        background: dotBg,
                         border: '1.5px solid #fff',
                         transform: 'translateX(-50%)',
                         transition: 'all 0.15s',
-                        zIndex: isHovered ? 3 : 1,
+                        zIndex: active ? 3 : 1,
                       }} />
                       {/* Leader line */}
                       <div style={{
@@ -501,7 +532,7 @@ export default function Home() {
                         top: TRACK_Y + 4,
                         width: 1,
                         height: labelTop - TRACK_Y - 4,
-                        background: isHovered ? 'rgba(204,51,0,0.4)' : 'rgba(0,0,0,0.06)',
+                        background: leaderBg,
                         transition: 'background 0.15s',
                       }} />
                       {/* Label */}
@@ -516,14 +547,14 @@ export default function Home() {
                         borderRadius: 3,
                         fontSize: '10px',
                         fontFamily: 'inherit',
-                        color: isHovered ? '#cc3300' : '#777',
-                        fontWeight: isHovered ? 700 : 400,
+                        color: labelColor,
+                        fontWeight: active ? 700 : 400,
                         whiteSpace: 'nowrap',
                         cursor: 'pointer',
                         transition: 'color 0.15s, font-weight 0.15s',
-                        zIndex: isHovered ? 3 : 1,
+                        zIndex: active ? 3 : 1,
                       }}>
-                        {topicLabel(t)}
+                        {isGemini ? t.name : topicLabel(t)}
                       </button>
                     </div>
                   )
@@ -551,16 +582,21 @@ export default function Home() {
 
         {/* ── Mobile: simple list ── */}
         <div className="landing-mobile-list">
-          {FEATURED_TOPICS.map((t, i) => (
-            <button key={i}
-              onClick={() => startDialogue(topicQuery(t))}
-              onMouseEnter={() => setHoveredTopic(i)}
-              onMouseLeave={() => setHoveredTopic(null)}
+          {[
+            ...FEATURED_TOPICS.map((t, i) => ({ label: topicLabel(t), query: topicQuery(t), year: t.year, isGemini: false, key: `f-${i}` })),
+            ...randomWords.map((w, i) => ({ label: w.name, query: w.name, year: w.year, isGemini: true, key: `g-${i}` })),
+          ].sort((a, b) => a.year - b.year).map(item => (
+            <button key={item.key}
+              onClick={() => startDialogue(item.query)}
+              onMouseEnter={item.isGemini ? undefined : () => setHoveredTopic(FEATURED_TOPICS.findIndex(t => topicQuery(t) === item.query))}
+              onMouseLeave={item.isGemini ? undefined : () => setHoveredTopic(null)}
               className="landing-mobile-item"
             >
-              <span className="landing-mobile-year">{t.year < 0 ? `${-t.year} BC` : t.year}</span>
-              <span className="landing-mobile-name">{topicLabel(t)}</span>
-              <ArrowRight size={12} style={{ color: '#ccc', flexShrink: 0 }} />
+              <span className="landing-mobile-year" style={item.isGemini ? { color: '#2563a8' } : undefined}>
+                {item.year < 0 ? `${-item.year} BC` : item.year}
+              </span>
+              <span className="landing-mobile-name" style={item.isGemini ? { color: '#2563a8' } : undefined}>{item.label}</span>
+              <ArrowRight size={12} style={{ color: item.isGemini ? '#93b8dd' : '#ccc', flexShrink: 0 }} />
             </button>
           ))}
         </div>
