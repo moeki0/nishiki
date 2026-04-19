@@ -4,7 +4,7 @@ import {
   timelineSchema, peopleSchema, insightSchema, statsSchema, calloutSchema, quizSchema,
   countrySchema, eventSchema, pullquoteSchema, compareSchema, bignumSchema, sourceSchema,
   agelineSchema, roleplaySchema, whatifSchema, animapSchema,
-  deepdiveInline, boldInline,
+  deepdiveInline, boldInline, footnoteInline,
 } from '@/components/renderers'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
@@ -22,6 +22,7 @@ const mainFlow = g.flow([
   g.prose('Wrap up with background context, underlying causes, or lasting consequences'),
   deepdiveInline,
   boldInline,
+  footnoteInline,
 ])
 
 const emphasisFlow = g.flow([

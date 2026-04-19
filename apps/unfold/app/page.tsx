@@ -6,6 +6,7 @@ import { Gengen } from '@moeki0/gengen/react'
 import { blockRenderers, sectionHeading } from '@/components/renderers'
 import { deepdiveRenderer } from '@/components/renderers/deepdive'
 import { boldRenderer } from '@/components/renderers/bold'
+import { makeFootnoteRenderer, type Footnote } from '@/components/renderers/footnote'
 import { resolveCountryCodes } from '@/lib/countries'
 import { extractCountryCodes } from '@/components/SidePanel'
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
@@ -78,7 +79,6 @@ const FEATURED_TOPICS: FeaturedTopic[] = [
   { name: 'Tiananmen Square', ja: '天安門事件', year: 1989, countries: [156] },
   { name: 'Arab Spring', ja: 'アラブの春', year: 2011, countries: [788, 818, 434] },
 ]
-const renderers = [...blockRenderers, deepdiveRenderer, boldRenderer]
 
 type WikiSummary = { image?: string }
 type Turn = { role: 'assistant' | 'user'; content: string }
@@ -118,9 +118,13 @@ export default function Home() {
   const [intro, setIntro] = useState('')
   const [fork, setFork] = useState<{ term: string; text: string; done: boolean } | null>(null)
   const [rawTurns, setRawTurns] = useState<Set<number>>(new Set())
+  const [footnotes, setFootnotes] = useState<Map<number, Footnote>>(new Map())
+  const [factcheckLoading, setFactcheckLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const forkAbortRef = useRef<AbortController | null>(null)
   const introAbortRef = useRef<AbortController | null>(null)
+
+  const renderers = [...blockRenderers, deepdiveRenderer, boldRenderer, makeFootnoteRenderer(footnotes)]
 
   const active = turns.length > 0 || phase === 'loading' || phase === 'streaming'
   const [hoveredTopic, setHoveredTopic] = useState<number | null>(null)
@@ -187,6 +191,8 @@ export default function Home() {
       }
       setTurns([...turnsToSend, { role: 'assistant', content: text }])
       setPhase('ready')
+      // Kick off factcheck asynchronously after generation
+      startFactcheck(text)
     } catch (e) {
       if ((e as Error).name !== 'AbortError') setPhase('ready')
     }
@@ -216,6 +222,40 @@ export default function Home() {
     } catch { /* aborted */ }
   }
 
+  async function startFactcheck(markdown: string) {
+    console.log('[factcheck] startFactcheck called, markdown length:', markdown.length)
+    setFootnotes(new Map())
+    setFactcheckLoading(true)
+    console.log('[factcheck] setFactcheckLoading(true) called')
+    try {
+      const res = await fetch('/api/factcheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markdown }),
+      })
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') return
+          try {
+            const { num, note, sources } = JSON.parse(data)
+            setFootnotes(prev => new Map(prev).set(num, { note, sources }))
+          } catch { /* skip malformed */ }
+        }
+      }
+    } catch { /* factcheck is best-effort */ }
+    finally { setFactcheckLoading(false) }
+  }
+
   async function startDialogue(t: string, pushHistory = true) {
     if (!t.trim()) return
     abortRef.current?.abort()
@@ -227,6 +267,7 @@ export default function Home() {
     setIntro('')
     setFork(null)
     setRawTurns(new Set())
+    setFootnotes(new Map())
     setPhase('loading')
     if (pushHistory) {
       window.history.pushState(null, '', `?q=${encodeURIComponent(t)}`)
@@ -1068,6 +1109,7 @@ export default function Home() {
             )
           })}
 
+
         </div>
 
         {/* Right margin — deepdive or people/stats */}
@@ -1176,6 +1218,22 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ── Factcheck loading ── */}
+      {factcheckLoading && (
+        <div style={{
+          position: 'fixed', bottom: '5rem', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 31, display: 'flex', alignItems: 'center', gap: '0.5rem',
+          background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(0,0,0,0.08)', borderRadius: '999px',
+          padding: '0.375rem 0.875rem', fontSize: '0.75rem', color: '#999',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          pointerEvents: 'none',
+        }}>
+          <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', border: '1.5px solid #ddd', borderTopColor: '#aaa', animation: 'spin 0.8s linear infinite' }} />
+          裏取り中...
+        </div>
+      )}
+
       {/* ── Input ── */}
       <div style={{ position: 'fixed', bottom: '1.25rem', left: 0, right: 0, zIndex: 30, display: 'flex', justifyContent: 'center', padding: '0 1rem' }}>
         <form onSubmit={e => { e.preventDefault(); sendMessage() }}
@@ -1249,6 +1307,7 @@ export default function Home() {
         }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:0.7} }
+        @keyframes spin { to { transform: rotate(360deg) } }
       `}</style>
     </div>
   )
