@@ -129,6 +129,7 @@ export default function Home() {
   const active = turns.length > 0 || phase === 'loading' || phase === 'streaming'
   const [hoveredTopic, setHoveredTopic] = useState<number | null>(null)
   const [isJa, setIsJa] = useState(true)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setIsJa(navigator.language.startsWith('ja')) }, [])
 
   // Auto-start from URL query
@@ -142,7 +143,7 @@ export default function Home() {
       setTopic(q)
       startDialogue(q, false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Handle browser back/forward
