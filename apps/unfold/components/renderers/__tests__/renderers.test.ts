@@ -134,23 +134,19 @@ describe('source schema', () => {
   const md = [
     '## source: 人権宣言 (1789年8月26日)',
     '> 人は自由かつ権利において平等なものとして生まれ、存在する。',
-    '',
-    'フランス革命期に国民議会が採択した全17条の宣言。',
   ].join('\n')
 
   it('matches', () => {
     expect(g.matchesSchema(md, sourceSchema.schema)).toBe(true)
   })
 
-  it('parses heading, text, note', () => {
-    const data = g.parseSchema(md, sourceSchema.schema) as { heading: string; text: string; note?: string }
-    expect(data.heading).toContain('人権宣言')
+  it('parses text', () => {
+    const data = g.parseSchema(md, sourceSchema.schema) as { text: string }
     expect(data.text).toContain('自由かつ権利')
-    expect(data.note).toContain('国民議会')
   })
 
   it('rejects non-source heading', () => {
-    expect(g.matchesSchema('## pullquote: doc\n> quote', sourceSchema.schema)).toBe(false)
+    expect(g.matchesSchema('## source: doc\nplain text only', sourceSchema.schema)).toBe(false)
   })
 })
 
