@@ -186,21 +186,21 @@ describe('routing with .content() + .split()', () => {
 
   it('routes ## ageline: date to ageline renderer', () => {
     const md = `## ageline: 1789年7月14日\n- ルイ16世: 34\n- ナポレオン: 19`
-    const blocks = g.route(md, renderers)
+    const { blocks } = g.route(md, renderers)
     expect(blocks.find(b => b.renderer?.name === 'ageline')).toBeTruthy()
     expect(blocks.find(b => b.renderer?.name === 'animap')).toBeFalsy()
   })
 
   it('routes ## animap: title to animap renderer', () => {
     const md = `## animap: 革命の拡大\n- 1789: フランス | 革命開始\n- 1792: フランス, オーストリア | 戦争勃発`
-    const blocks = g.route(md, renderers)
+    const { blocks } = g.route(md, renderers)
     expect(blocks.find(b => b.renderer?.name === 'animap')).toBeTruthy()
     expect(blocks.find(b => b.renderer?.name === 'ageline')).toBeFalsy()
   })
 
   it('does not route ## compare: title to ageline or animap', () => {
     const md = `## compare: 身分の比較\n- A\n- B`
-    const blocks = g.route(md, renderers)
+    const { blocks } = g.route(md, renderers)
     expect(blocks.find(b => b.renderer?.name === 'ageline')).toBeFalsy()
     expect(blocks.find(b => b.renderer?.name === 'animap')).toBeFalsy()
   })

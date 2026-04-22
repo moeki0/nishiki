@@ -28,3 +28,5 @@ export interface InlineSchemaDefinition {
 export interface InlineRendererDefinition extends InlineSchemaDefinition {
   component: ComponentType<{ text: string }>
 }
+
+export type { BindingDefinition } from './bind'

@@ -2,6 +2,8 @@ import type { SchemaDefinition, InlineSchemaDefinition } from './types'
 import { isListPartWithSome, isListWithAll, isListWithFormat } from './schema'
 import type { SchemaPart } from './schema'
 import type { FlowNode, ProseNode, LoopNode, OneOfNode, Flow } from './flow'
+import { regexToExample, getBindingPattern } from './bind'
+import type { BindingDefinition } from './bind'
 
 function partToSentence(key: string, part: SchemaPart): string {
   if (isListWithAll(part)) {
@@ -73,6 +75,10 @@ function schemaToSentences(schema: Record<string, SchemaPart>): string {
 
 function isFlowNode(node: FlowNode): node is ProseNode | LoopNode | OneOfNode {
   return '_kind' in node
+}
+
+function isBindingNode(s: FlowNode | BindingDefinition): s is BindingDefinition {
+  return '_kind' in s && (s as BindingDefinition)._kind === 'binding'
 }
 
 function isInlineSchema(s: FlowNode): s is InlineSchemaDefinition {
@@ -158,14 +164,20 @@ function collectSchemas(nodes: FlowNode[]): { blocks: SchemaDefinition[]; inline
 
 // ── Public API ──
 
-export function prompt(input: Flow | FlowNode[]): string {
-  const allSchemas = '_kind' in input && input._kind === 'flow' ? (input as Flow).nodes : input as FlowNode[]
+export function prompt(input: Flow | (FlowNode | BindingDefinition)[]): string {
+  const allItems = '_kind' in input && input._kind === 'flow' ? (input as Flow).nodes : input as (FlowNode | BindingDefinition)[]
+
+  // Separate bindings from other items
+  const bindings = allItems.filter(isBindingNode) as BindingDefinition[]
+  const allSchemas = allItems.filter(s => !isBindingNode(s)) as FlowNode[]
 
   // Check if this is a flow (contains prose/loop/oneOf nodes) or a flat list
   const hasFlow = allSchemas.some(s => isFlowNode(s))
 
   if (hasFlow) {
-    return flowPrompt(allSchemas)
+    const flowResult = flowPrompt(allSchemas)
+    const bindingResult = bindingPrompt(bindings)
+    return bindingResult ? `${flowResult}\n\n${bindingResult}` : flowResult
   }
 
   // Legacy: flat list of schemas
@@ -188,16 +200,57 @@ export function prompt(input: Flow | FlowNode[]): string {
     }
   }
 
-  if (inlines.length > 0) {
+  if (inlines.length > 0 || bindings.length > 0) {
     sections.push('')
     sections.push('**Inline markers** — use these within prose text:')
     for (const il of inlines) {
       const [open, close] = il.marker
       sections.push(`- \`${open}term${close}\` — ${il.description ?? il.name}`)
     }
+    for (const b of bindings) {
+      const [open, close] = b.inline.marker
+      sections.push(`- \`${open}N${close}\` — ${b.inline.description ?? b.inline.name}`)
+    }
+  }
+
+  // Binding definitions section
+  if (bindings.length > 0) {
+    sections.push('')
+    sections.push('**Definitions** — define each reference at the end of your response:')
+    for (const binding of bindings) {
+      const pattern = getBindingPattern(binding)
+      if (pattern) {
+        const example = regexToExample(pattern)
+        sections.push(`- \`${example}\` — ${binding.block.description ?? binding.block.name}`)
+      }
+    }
   }
 
   return sections.join('\n').trim()
+}
+
+function bindingPrompt(bindings: BindingDefinition[]): string {
+  if (bindings.length === 0) return ''
+
+  const sections: string[] = []
+
+  sections.push('**Inline markers** — use these within prose text:')
+  for (const binding of bindings) {
+    const [open, close] = binding.inline.marker
+    sections.push(`- \`${open}N${close}\` — ${binding.inline.description ?? binding.inline.name}`)
+  }
+
+  sections.push('')
+  sections.push('**Definitions** — define each reference at the end of your response:')
+  for (const binding of bindings) {
+    const pattern = getBindingPattern(binding)
+    if (pattern) {
+      const example = regexToExample(pattern)
+      sections.push(`- \`${example}\` — ${binding.block.description ?? binding.block.name}`)
+    }
+  }
+
+  return sections.join('\n')
 }
 
 function flowPrompt(nodes: FlowNode[]): string {

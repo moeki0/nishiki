@@ -17,7 +17,7 @@ describe('route specificity', () => {
     const md = `- 1066: Battle of Hastings\n- 1215: Magna Carta`
 
     // generic is listed FIRST, but timeline should win because it's more specific
-    const blocks = g.route(md, [generic, timeline])
+    const { blocks } = g.route(md, [generic, timeline])
     expect(blocks[0].renderer?.name).toBe('timeline')
   })
 
@@ -30,7 +30,7 @@ describe('route specificity', () => {
     })
 
     const md = '```ts\nconst x = 1\n```'
-    const blocks = g.route(md, [anyCode, tsCode])
+    const { blocks } = g.route(md, [anyCode, tsCode])
     expect(blocks[0].renderer?.name).toBe('tsCode')
   })
 
@@ -43,7 +43,7 @@ describe('route specificity', () => {
     })
 
     const md = '## Hello'
-    const blocks = g.route(md, [anyHeading, h2Only])
+    const { blocks } = g.route(md, [anyHeading, h2Only])
     expect(blocks[0].renderer?.name).toBe('h2Only')
   })
 })

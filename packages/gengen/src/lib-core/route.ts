@@ -5,10 +5,18 @@ import type { RendererDefinition } from './types'
 import type { SchemaPart } from './schema'
 import { matchesSchema } from './parseSchema'
 import { parseMarkdown, serializeMarkdown } from './parseMarkdown'
+import { isBinding, extractBindingDefinitions } from './bind'
+import type { BindingDefinition } from './bind'
 
 export interface RenderedBlock {
   renderer: RendererDefinition | null
   markdown: string
+}
+
+export interface RouteResult {
+  blocks: RenderedBlock[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bindings: Map<string, Map<string, any>>
 }
 
 function htmlValue(node: RootContent): string | null {
@@ -145,8 +153,33 @@ function findRendererByHeading(text: string, renderers: RendererDefinition[]): R
   })
 }
 
-export function route(markdown: string, renderers: RendererDefinition[]): RenderedBlock[] {
-  const ast = parseMarkdown(markdown)
+export function route(markdown: string, renderers: (RendererDefinition | BindingDefinition)[]): RouteResult {
+  // Separate bindings from regular renderers
+  const bindingDefs = renderers.filter(isBinding) as BindingDefinition[]
+  const blockRenderers = renderers.filter(r => !isBinding(r)) as RendererDefinition[]
+
+  // Pre-extract binding definition lines before routing
+  const { cleaned, definitions } = extractBindingDefinitions(markdown, bindingDefs)
+
+  // Build the bindings result map: name → Map<inlineText, resolvedData>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bindingsMap = new Map<string, Map<string, any>>()
+  for (const binding of bindingDefs) {
+    const name = binding.inline.name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const innerMap = new Map<string, any>()
+    const defs = definitions.get(name) ?? []
+    for (const def of defs) {
+      // Find the key by testing on() with each string value in the parsed block
+      const key = findBindingKey(def.parsed, binding.rules.on)
+      if (key) {
+        innerMap.set(key, def.resolved)
+      }
+    }
+    bindingsMap.set(name, innerMap)
+  }
+
+  const ast = parseMarkdown(cleaned)
 
   const footnoteDefs = ast.children.filter(node => node.type === 'footnoteDefinition')
   const linkDefs = ast.children.filter(node => node.type === 'definition')
@@ -164,7 +197,7 @@ export function route(markdown: string, renderers: RendererDefinition[]): Render
   for (const node of contentNodes) {
     if (node.type === 'heading') {
       const text = toString(node).trim()
-      const matched = findRendererByHeading(text, renderers)
+      const matched = findRendererByHeading(text, blockRenderers)
       if (matched) {
         // 現在のセグメントを確定
         if (currentSegment.nodes.length > 0) segments.push(currentSegment)
@@ -179,7 +212,7 @@ export function route(markdown: string, renderers: RendererDefinition[]): Render
 
   // ── Pass 2: 各セグメントをルーティング ──
   function resolveNodes(nodes: RootContent[]): { renderer: RendererDefinition | null; markdown: string } {
-    const rawMd = extractRaw(markdown, nodes)
+    const rawMd = extractRaw(cleaned, nodes)
     const referencedFootnotes = collectFootnoteRefs(nodes)
     const referencedLinks = collectLinkRefs(nodes)
     const attachedDefs: RootContent[] = [
@@ -189,7 +222,7 @@ export function route(markdown: string, renderers: RendererDefinition[]): Render
     const md = attachedDefs.length > 0
       ? nodesToMarkdown([...nodes, ...attachedDefs])
       : (rawMd || nodesToMarkdown(nodes))
-    const matches = renderers.filter((r) => matchesSchema(md, r.schema))
+    const matches = blockRenderers.filter((r) => matchesSchema(md, r.schema))
     const renderer = matches.length > 1
       ? matches.reduce((best, r) => specificity(r.schema) > specificity(best.schema) ? r : best)
       : (matches[0] ?? null)
@@ -224,7 +257,7 @@ export function route(markdown: string, renderers: RendererDefinition[]): Render
           // Named code block
           if (groups[i].length === 1 && groups[i][0].type === 'code' && (groups[i][0] as Code).lang) {
             const codeNode = groups[i][0] as Code
-            const namedRenderer = renderers.find(r => r.name === codeNode.lang)
+            const namedRenderer = blockRenderers.find(r => r.name === codeNode.lang)
             if (namedRenderer) {
               if (matchesSchema(codeNode.value, namedRenderer.schema)) {
                 routed.push({ renderer: namedRenderer, markdown: codeNode.value })
@@ -242,7 +275,7 @@ export function route(markdown: string, renderers: RendererDefinition[]): Render
         // Named code block
         if (groups[i].length === 1 && groups[i][0].type === 'code' && (groups[i][0] as Code).lang) {
           const codeNode = groups[i][0] as Code
-          const namedRenderer = renderers.find(r => r.name === codeNode.lang)
+          const namedRenderer = blockRenderers.find(r => r.name === codeNode.lang)
           if (namedRenderer) {
             const lines = codeNode.value.trim().split('\n')
             const asList = lines.map(l => `- ${l}`).join('\n')
@@ -278,5 +311,24 @@ export function route(markdown: string, renderers: RendererDefinition[]): Render
     }
   }
 
-  return mergeDefaultBlocks(routed)
+  return { blocks: mergeDefaultBlocks(routed), bindings: bindingsMap }
+}
+
+/** Try to find what inline text would match a parsed binding definition */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findBindingKey(parsed: Record<string, any>, on: (inline: { text: string }, block: any) => boolean): string | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function tryValues(obj: any): string | undefined {
+    if (typeof obj !== 'object' || obj === null) return undefined
+    for (const val of Object.values(obj)) {
+      if (typeof val === 'string') {
+        if (on({ text: val }, parsed)) return val
+      } else if (typeof val === 'object' && val !== null) {
+        const found = tryValues(val)
+        if (found) return found
+      }
+    }
+    return undefined
+  }
+  return tryValues(parsed)
 }

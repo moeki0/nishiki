@@ -3,24 +3,20 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { parseSchema } from './parseSchema'
 import { route } from './route'
-import { GengenProvider, INLINES_KEY } from './MarkdownContext'
-import { replaceInlineMarkers } from './inlineReplace'
+import { GengenProvider, INLINES_KEY, BINDINGS_KEY, useInlineText } from './MarkdownContext'
+import type { BindingContext } from './inlineReplace'
 import type { RendererDefinition, InlineRendererDefinition } from './types'
+import { isBinding } from './bind'
+import type { BindingDefinition } from './bind'
 
-/** Replace inline markers in React children nodes */
-function processInlines(
-  children: React.ReactNode,
-  inlines: InlineRendererDefinition[],
-): React.ReactNode {
-  if (!inlines.length) return children
-  return React.Children.map(children, child => {
-    if (typeof child !== 'string') return child
-    return replaceInlineMarkers(child, inlines)
-  })
-}
-
-function DefaultMarkdown({ markdown, inlines = [] }: { markdown: string; inlines?: InlineRendererDefinition[] }) {
-  const wrap = (children: React.ReactNode) => processInlines(children, inlines)
+function DefaultMarkdown({ markdown }: { markdown: string; inlines?: InlineRendererDefinition[] }) {
+  const inlineText = useInlineText()
+  const wrap = (children: React.ReactNode) => {
+    return React.Children.map(children, child => {
+      if (typeof child !== 'string') return child
+      return inlineText(child)
+    })
+  }
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -76,10 +72,10 @@ function DefaultMarkdown({ markdown, inlines = [] }: { markdown: string; inlines
   )
 }
 
-type AnyRenderer = RendererDefinition | InlineRendererDefinition
+type AnyRenderer = RendererDefinition | InlineRendererDefinition | BindingDefinition
 
 function isInlineRenderer(r: AnyRenderer): r is InlineRendererDefinition {
-  return 'marker' in r
+  return 'marker' in r && !isBinding(r)
 }
 
 interface Props {
@@ -91,11 +87,27 @@ interface Props {
 }
 
 export function Aimd({ markdown, renderers: allRenderers, fallback: Fallback, context }: Props) {
-  const blockRenderers = allRenderers.filter((r): r is RendererDefinition => !isInlineRenderer(r))
+  const bindings = allRenderers.filter(isBinding) as BindingDefinition[]
+  const blockRenderers = allRenderers.filter((r): r is RendererDefinition => !isInlineRenderer(r) && !isBinding(r))
   const inlineRenderers = allRenderers.filter(isInlineRenderer)
-  const blocks = route(markdown, blockRenderers)
+
+  // Route with bindings (definition lines extracted and removed before routing)
+  const { blocks, bindings: bindingsMap } = route(markdown, [...blockRenderers, ...bindings])
+
+  // Build binding contexts for inline resolution
+  const bindingContexts: BindingContext[] = bindings
+    .filter((b): b is BindingDefinition & { inline: InlineRendererDefinition } => 'component' in b.inline)
+    .map(b => ({
+      inline: b.inline as InlineRendererDefinition,
+      definitions: bindingsMap.get(b.inline.name) ?? new Map(),
+    }))
+
   const FallbackComponent = Fallback ?? DefaultMarkdown
-  const ctxValue = { ...context, [INLINES_KEY]: inlineRenderers }
+  const ctxValue = {
+    ...context,
+    [INLINES_KEY]: inlineRenderers,
+    [BINDINGS_KEY]: bindingContexts,
+  }
   return (
     <GengenProvider value={ctxValue}>
       {blocks.map((block, i) => {

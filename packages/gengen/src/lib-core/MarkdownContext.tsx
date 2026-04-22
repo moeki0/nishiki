@@ -1,9 +1,12 @@
 import React, { createContext, useContext } from 'react'
 import type { InlineRendererDefinition } from './types'
 import { replaceInlineMarkers } from './inlineReplace'
+import type { BindingContext } from './inlineReplace'
 
 /** Symbol key for internal inline renderers — never leaks into user context */
 export const INLINES_KEY = Symbol.for('gengen.inlines')
+/** Symbol key for binding contexts */
+export const BINDINGS_KEY = Symbol.for('gengen.bindings')
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const GengenContext = createContext<Record<string | symbol, any>>({})
@@ -24,8 +27,9 @@ export function useGengenContext<T = Record<string, unknown>>(): T {
 export function useInlineText(): (text: string) => React.ReactNode {
   const ctx = useContext(GengenContext)
   const inlines: InlineRendererDefinition[] = ctx[INLINES_KEY] ?? []
+  const bindingContexts: BindingContext[] = ctx[BINDINGS_KEY] ?? []
 
   return (text: string): React.ReactNode => {
-    return replaceInlineMarkers(text, inlines)
+    return replaceInlineMarkers(text, inlines, bindingContexts)
   }
 }

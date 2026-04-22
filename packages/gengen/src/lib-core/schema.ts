@@ -174,6 +174,7 @@ export interface SeparateField {
 
 export type CodeblockPart  = { kind: 'codeblock'; lang?: string; exampleCode?: string; contentMatch?: string | RegExp; hint?: string; isOptional?: true }
 export type TextPart       = { kind: 'text'; until?: string; label?: boolean; filter?: (value: string) => boolean; hint?: string; isOptional?: true }
+export type TextMatchPart  = { kind: 'textMatch'; matchPattern: RegExp; hint?: string; isOptional?: true }
 export type BoolPart       = { kind: 'bool'; hint?: string; isOptional?: true }
 export type HeadingPart    = { kind: 'heading'; level?: number | number[]; separates?: SeparateField[]; hint?: string; contentMatch?: string | RegExp; prefixMatch?: string | RegExp; isOptional?: true }
 export type BlockquotePart = { kind: 'blockquote'; hint?: string; isOptional?: true }
@@ -235,7 +236,7 @@ export type AnyListPart =
   | ListFormatBuilder
   | ListBuilder
 
-export type SchemaPart = CodeblockPart | AnyListPart | TextPart | BoolPart | HeadingPart | BlockquotePart | TablePart
+export type SchemaPart = CodeblockPart | AnyListPart | TextPart | TextMatchPart | BoolPart | HeadingPart | BlockquotePart | TablePart
 
 // --- Type guards ---
 
@@ -251,11 +252,16 @@ export function isListWithFormat(part: SchemaPart): boolean {
   return part.kind === 'list' && 'allFormatConstraint' in part
 }
 
+export function isTextMatch(part: SchemaPart): part is TextMatchPart {
+  return part.kind === 'textMatch'
+}
+
 // --- Type inference ---
 
 export type InferPart<P extends SchemaPart> =
   P extends BoolPart ? boolean
     : P extends TablePart ? { headers: string[]; rows: string[][] }
+    : P extends TextMatchPart ? Record<string, string>
     : P extends { kind: 'list'; allConstraint: KeyValueConstraint<infer K extends ItemDef<string, unknown>, infer V extends ItemDef<string, unknown>> }
       ? ({ [k in K['name']]: K['_type'] } & { [v in V['name']]: V['_type'] })[]
       : P extends AnyListPart ? string[]
@@ -283,7 +289,12 @@ export interface CodeblockBuilder extends CodeblockPart {
   optional(): CodeblockPart & { isOptional: true }
 }
 
+export interface TextMatchBuilder extends TextMatchPart {
+  optional(): TextMatchPart & { isOptional: true }
+}
+
 export interface TextBuilder extends TextPart {
+  match(pattern: RegExp): TextMatchBuilder
   optional(): TextPart & { isOptional: true }
 }
 
@@ -315,6 +326,13 @@ export const codeblock = (lang?: string, exampleCode?: string): CodeblockBuilder
 
 export const text = (until?: string, label?: boolean): TextBuilder => ({
   kind: 'text', until, label,
+  match(pattern: RegExp): TextMatchBuilder {
+    return {
+      kind: 'textMatch',
+      matchPattern: pattern,
+      optional() { return { kind: 'textMatch', matchPattern: pattern, isOptional: true as const } },
+    }
+  },
   optional() { return { kind: 'text', until, label, isOptional: true as const } },
 })
 

@@ -49,7 +49,7 @@ const allRenderers = [eventRenderer, countryRenderer, statsRenderer, quizRendere
 describe('named heading routing', () => {
   it('matches ## 国 with country renderer', () => {
     const md = `## 国\n### 関与した地域\n- エジプト\n- ローマ帝国`
-    const blocks = g.route(md, allRenderers)
+    const { blocks } = g.route(md, allRenderers)
     const match = blocks.find(b => b.renderer?.name === 'country')
     expect(match).toBeTruthy()
     const data = g.parseSchema(match!.markdown, countryRenderer.schema)
@@ -58,32 +58,32 @@ describe('named heading routing', () => {
 
   it('matches ### country with country renderer', () => {
     const md = `### country\n- フランス\n- イギリス`
-    const blocks = g.route(md, allRenderers)
+    const { blocks } = g.route(md, allRenderers)
     expect(blocks.find(b => b.renderer?.name === 'country')).toBeTruthy()
   })
 
   it('matches ## イベント with event renderer', () => {
     const md = `## イベント\n### 転換点\n- バスティーユ襲撃: 1789年\n- 憲法制定: 1791年`
-    const blocks = g.route(md, allRenderers)
+    const { blocks } = g.route(md, allRenderers)
     const match = blocks.find(b => b.renderer?.name === 'event')
     expect(match).toBeTruthy()
   })
 
   it('matches ## event with event renderer', () => {
     const md = `## event\n- 統一: 紀元前3000年\n- 滅亡: 紀元前30年`
-    const blocks = g.route(md, allRenderers)
+    const { blocks } = g.route(md, allRenderers)
     expect(blocks.find(b => b.renderer?.name === 'event')).toBeTruthy()
   })
 
   it('matches ## クイズ with quiz renderer', () => {
     const md = `## クイズ\nピラミッドの建設者は？\n\n- 奴隷\n- 農民 ★\n- 兵士\n- 商人`
-    const blocks = g.route(md, allRenderers)
+    const { blocks } = g.route(md, allRenderers)
     expect(blocks.find(b => b.renderer?.name === 'quiz')).toBeTruthy()
   })
 
   it('does not swallow prose after quiz', () => {
     const md = `## クイズ\n質問？\n\n- A ★\n- B\n- C\n\nこの後の散文は別ブロックになるべき。`
-    const blocks = g.route(md, allRenderers)
+    const { blocks } = g.route(md, allRenderers)
     const quiz = blocks.find(b => b.renderer?.name === 'quiz')
     expect(quiz).toBeTruthy()
     // The trailing prose should be a separate default block
@@ -93,14 +93,14 @@ describe('named heading routing', () => {
 
   it('does not match regular prose as country or event', () => {
     const md = `これは普通の散文です。\n\n- りんご\n- みかん`
-    const blocks = g.route(md, allRenderers)
+    const { blocks } = g.route(md, allRenderers)
     expect(blocks.find(b => b.renderer?.name === 'country')).toBeFalsy()
     expect(blocks.find(b => b.renderer?.name === 'event')).toBeFalsy()
   })
 
   it('people renderer does not match country items', () => {
     const md = `## 国\n- フランス\n- イギリス`
-    const blocks = g.route(md, allRenderers)
+    const { blocks } = g.route(md, allRenderers)
     expect(blocks.find(b => b.renderer?.name === 'people')).toBeFalsy()
     expect(blocks.find(b => b.renderer?.name === 'country')).toBeTruthy()
   })

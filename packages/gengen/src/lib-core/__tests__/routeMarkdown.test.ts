@@ -21,7 +21,7 @@ describe('route', () => {
 - Blue ★
 - Green`
 
-    const blocks = g.route(markdown, [quizRenderer])
+    const { blocks } = g.route(markdown, [quizRenderer])
 
     const quizBlock = blocks.find(b => b.renderer?.name === 'quiz')
     expect(quizBlock).toBeTruthy()
@@ -35,7 +35,7 @@ Some plain text here.
 
 [^1]: As of 2025`
 
-    const blocks = g.route(markdown, [statsRenderer])
+    const { blocks } = g.route(markdown, [statsRenderer])
 
     const statsBlock = blocks.find(b => b.renderer?.name === 'stats')
     expect(statsBlock).toBeTruthy()

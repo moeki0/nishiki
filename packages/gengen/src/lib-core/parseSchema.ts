@@ -1,8 +1,8 @@
 import { parseMarkdown as fromMarkdown } from './parseMarkdown'
 import { toString } from 'mdast-util-to-string'
 import type { Root, Code, List, Heading, Blockquote, Table, RootContent } from 'mdast'
-import { isListPartWithSome, isListWithAll, isListWithFormat } from './schema'
-import type { SchemaPart, InferSchema } from './schema'
+import { isListPartWithSome, isListWithAll, isListWithFormat, isTextMatch } from './schema'
+import type { SchemaPart, InferSchema, TextMatchPart } from './schema'
 
 
 // --- Extraction with consumed-node tracking ---
@@ -96,6 +96,16 @@ function extractTable(ast: Root, consumed: Consumed): { headers: string[]; rows:
   return { headers, rows }
 }
 
+function extractTextMatch(ast: Root, consumed: Consumed, pattern: RegExp): Record<string, string> | null {
+  const idx = ast.children.findIndex((node, i) => !consumed.has(i) && node.type === 'paragraph')
+  if (idx === -1) return null
+  const text = toString(ast.children[idx]).trim()
+  const m = pattern.exec(text)
+  if (!m?.groups) return null
+  consumed.add(idx)
+  return { ...m.groups }
+}
+
 function extractLabel(ast: Root, key: string): string {
   for (const node of ast.children) {
     if (node.type === 'paragraph') {
@@ -121,6 +131,11 @@ export function parseSchema<S extends Record<string, SchemaPart>>(
   const consumed: Consumed = new Set()
 
   for (const [key, part] of Object.entries(schema)) {
+    if (isTextMatch(part)) {
+      result[key] = extractTextMatch(ast, consumed, part.matchPattern) ?? {}
+      continue
+    }
+
     if (isListWithAll(part)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p = part as any
@@ -190,6 +205,15 @@ export function diagnose(markdown: string, schema: Record<string, SchemaPart>): 
   const consumed: Consumed = new Set()
 
   for (const [key, part] of Object.entries(schema)) {
+    if (isTextMatch(part)) {
+      const matched = extractTextMatch(ast, consumed, part.matchPattern)
+      if (!matched) {
+        if (part.isOptional) continue
+        errors.push({ field: key, reason: 'text does not match pattern' })
+      }
+      continue
+    }
+
     if (isListWithAll(part)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p = part as any
