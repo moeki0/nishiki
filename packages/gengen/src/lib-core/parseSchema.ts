@@ -1,7 +1,7 @@
 import { parseMarkdown as fromMarkdown } from './parseMarkdown'
 import { toString } from 'mdast-util-to-string'
 import type { Root, Code, List, Heading, Blockquote, Table, RootContent } from 'mdast'
-import { isListPartWithSome, isListWithAll, isListWithFormat, isTextMatch } from './schema'
+import { isListPartWithSome, isListWithAll, isListWithFormat, isTextMatch, escapeRegex } from './schema'
 import type { SchemaPart, InferSchema } from './schema'
 
 
@@ -110,7 +110,7 @@ function extractLabel(ast: Root, key: string): string {
   for (const node of ast.children) {
     if (node.type === 'paragraph') {
       const text = toString(node)
-      const m = text.match(new RegExp(`^${key}:\\s*(.+)`, 'm'))
+      const m = text.match(new RegExp(`^${escapeRegex(key)}:\\s*(.+)`, 'm'))
       if (m) return m[1].trim()
     }
   }

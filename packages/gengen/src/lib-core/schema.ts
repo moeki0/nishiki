@@ -59,7 +59,7 @@ export interface KeyValueConstraint<
   describe: () => string
 }
 
-function escapeRegex(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
+export function escapeRegex(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
 
 export function split<
   K extends ItemDef<string, unknown>,
