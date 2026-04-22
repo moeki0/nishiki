@@ -68,7 +68,9 @@ export default function Page() {
 ```ts
 import { g } from '@moeki0/gengen'
 
-for (const block of g.route(markdown, renderers)) {
+const { blocks } = g.route(markdown, renderers)
+
+for (const block of blocks) {
   if (block.renderer) {
     const props = g.parseSchema(block.markdown, block.renderer.schema)
     // render however you want
@@ -118,6 +120,8 @@ const article = g.block('article')
 | `g.blockquote()` | `> ...` | `string` |
 | `g.table()` | `\| col \| ... \|` | `{ headers: string[]; rows: string[][] }` |
 | `g.bool()` | `true` / `false` | `boolean` |
+
+| `g.text().match(regex)` | paragraph matching regex | `Record<string, string>` (named groups) |
 
 All parts except `g.inline()` support `.optional()`, which marks the field as may-be-absent. The LLM may omit the block, and the prop type becomes `T | undefined`.
 
@@ -254,6 +258,58 @@ function CalloutRenderer({ note }: { note: string }) {
 
 ---
 
+## Binding inline references to block definitions
+
+`g.bind()` connects inline markers (e.g. `[^1]`) with block-level definitions (e.g. `[^1]: #INQ-001 "quote"`), enabling footnote-style references that resolve to rich React components.
+
+```ts
+// 1. Define the inline marker
+const citationRef = g.inline('citation', {
+  marker: ['[^', ']'],
+  description: 'A citation reference',
+  component: ({ text, bound }) => {
+    if (!bound) return <span>[^{text}]</span>
+    return <a href={`#${bound.inquiryId}`}>{bound.quote}</a>
+  },
+})
+
+// 2. Define the block pattern for definition lines
+const citationDef = g.block('citation-def')
+  .describe('Footnote definition. [^N]: #id "quote" format.')
+  .schema({
+    ref: g.text().match(
+      /^\[\^(?<key>\w+)\]:\s*#(?<inquiryId>\S+)\s+"(?<quote>[^"]+)"/
+    ),
+  })
+
+// 3. Bind them together
+const citation = g.bind(citationRef, citationDef, {
+  on: (inline, block) => inline.text === block.ref.key,
+  resolve: (block) => ({
+    inquiryId: block.ref.inquiryId,
+    quote: block.ref.quote,
+  }),
+})
+```
+
+The LLM writes:
+
+```markdown
+This is supported by evidence [^1] and further confirmed [^2].
+
+[^1]: #INQ-001 "Customer feedback on latency"
+[^2]: #INQ-042 "Support ticket analysis"
+```
+
+Definition lines are automatically extracted before routing. Inline markers resolve to the bound data via the `on`/`resolve` rules.
+
+```ts
+g.prompt([card, citation])    // includes inline markers + definition format
+<Gengen markdown={md} renderers={[CardView, citation]} />
+```
+
+---
+
 ## Document flow
 
 Control the narrative structure of the LLM's output. Flow is a **prompt-generation hint** --- it tells the LLM what order to write in, but `g.route()` does not enforce this order. Routing is always specificity-based schema matching.
@@ -344,10 +400,10 @@ React component that routes each Markdown block to the matching renderer. Unmatc
 
 ### `g.route(markdown, renderers)`
 
-Route without React. Returns an array of `{ renderer, markdown }` blocks.
+Route without React. Returns `{ blocks, bindings }`.
 
 ```ts
-const blocks = g.route(markdown, renderers)
+const { blocks, bindings } = g.route(markdown, renderers)
 
 for (const block of blocks) {
   if (block.renderer) {
@@ -359,6 +415,12 @@ for (const block of blocks) {
   }
 }
 ```
+
+When bindings are present, definition lines are extracted before routing. The `bindings` map holds resolved data keyed by inline name and reference key.
+
+### `g.bind(inline, block, rules)`
+
+Connect an inline marker to block-level definitions. See [Binding inline references](#binding-inline-references-to-block-definitions) for full usage.
 
 ### `g.parseSchema(markdown, schema)`
 
