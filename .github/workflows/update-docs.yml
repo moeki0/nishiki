@@ -6,9 +6,13 @@ on:
       - main
     paths:
       - 'packages/gengen/src/**'
+  pull_request:
+    paths:
+      - 'packages/gengen/src/**'
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   update-docs:
@@ -16,7 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
 
       - uses: anthropics/claude-code-action@v1
         with:
@@ -25,7 +30,7 @@ jobs:
             packages/gengen の src/ に変更がありました。
             以下の手順でREADMEを更新してください：
 
-            1. `git diff HEAD~1 -- packages/gengen/src/` で変更内容を確認する
+            1. `git diff origin/main...HEAD -- packages/gengen/src/` で変更内容を確認する
             2. `packages/gengen/README.md` を読む
             3. 変更内容に応じてREADMEを更新する（新しいAPI・変更されたAPI・削除されたAPIを反映）
             4. 変更があれば `git add packages/gengen/README.md` してコミットする
