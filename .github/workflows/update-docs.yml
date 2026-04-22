@@ -1,11 +1,6 @@
 name: Update README on gengen changes
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'packages/gengen/src/**'
   pull_request:
     paths:
       - 'packages/gengen/src/**'
